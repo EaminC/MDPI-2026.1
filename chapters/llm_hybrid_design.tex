@@ -1,4 +1,4 @@
-% !TeX root = ../thuthesis-example.tex
+% !TeX root = ../main.tex
 \section{Hybrid Recommender System Design with LLM Agents}
 
 \subsection{Overview}
@@ -46,32 +46,32 @@ Below we describe the memory data structures and common operations.
 \label{lst:static-json}
 \rule{\columnwidth}{1pt}
 \raggedright
-\texttt{\{ "Identification Info": \{}\\
-\texttt{\quad "Name": <user name>,}\\
-\texttt{\quad "UserID": <unique identifier>,}\\
-\texttt{\quad "Age": <age>,}\\
-\texttt{\quad "Gender": <gender>,}\\
-\texttt{\quad "Salary": <salary>,}\\
-\texttt{\quad "Federation": <organization/group>,}\\
-\texttt{\quad "Work age": <years of work>,}\\
-\texttt{\quad "Deposit": <deposits>,}\\
-\texttt{\quad "Company": <company>,}\\
-\texttt{\quad "Home Address": <home address>}\\
+\texttt{\{ {\bfseries "Identification Info":} \{}\\
+\texttt{\quad {\bfseries "Name":} <user name>,}\\
+\texttt{\quad {\bfseries "UserID":} <unique identifier>,}\\
+\texttt{\quad {\bfseries "Age":} <age>,}\\
+\texttt{\quad {\bfseries "Gender":} <gender>,}\\
+\texttt{\quad {\bfseries "Salary":} <salary>,}\\
+\texttt{\quad {\bfseries "Federation":} <organization/group>,}\\
+\texttt{\quad {\bfseries "Work age":} <years of work>,}\\
+\texttt{\quad {\bfseries "Deposit":} <deposits>,}\\
+\texttt{\quad {\bfseries "Company":} <company>,}\\
+\texttt{\quad {\bfseries "Home Address":} <home address>}\\
 \texttt{\},}\\
-\texttt{"Interaction Info": \{}\\
-\texttt{\quad "Description of Favor": <preference description>,}\\
-\texttt{\quad "Interaction History": \{}\\
-\texttt{\quad\quad "Inter1": \{}\\
-\texttt{\quad\quad\quad "Time": <time>,}\\
-\texttt{\quad\quad\quad "Query": <query>,}\\
-\texttt{\quad\quad\quad "Filter": <filters>,}\\
-\texttt{\quad\quad\quad "Final decision": \{}\\
-\texttt{\quad\quad\quad\quad "Item name": <item name>,}\\
-\texttt{\quad\quad\quad\quad "Item category": <category>,}\\
-\texttt{\quad\quad\quad\quad "Item comment grade": <rating>,}\\
-\texttt{\quad\quad\quad\quad "Item price average": <avg price>,}\\
-\texttt{\quad\quad\quad\quad "Item comment count": <review count>,}\\
-\texttt{\quad\quad\quad\quad "Item distance": <distance>}\\
+\texttt{{\bfseries "Interaction Info":} \{}\\
+\texttt{\quad {\bfseries "Description of Favor":} <preference description>,}\\
+\texttt{\quad {\bfseries "Interaction History":} \{}\\
+\texttt{\quad\quad {\bfseries "Inter1":} \{}\\
+\texttt{\quad\quad\quad {\bfseries "Time":} <time>,}\\
+\texttt{\quad\quad\quad {\bfseries "Query":} <query>,}\\
+\texttt{\quad\quad\quad {\bfseries "Filter":} <filters>,}\\
+\texttt{\quad\quad\quad {\bfseries "Final decision":} \{}\\
+\texttt{\quad\quad\quad\quad {\bfseries "Item name":} <item name>,}\\
+\texttt{\quad\quad\quad\quad {\bfseries "Item category":} <category>,}\\
+\texttt{\quad\quad\quad\quad {\bfseries "Item comment grade":} <rating>,}\\
+\texttt{\quad\quad\quad\quad {\bfseries "Item price average":} <avg price>,}\\
+\texttt{\quad\quad\quad\quad {\bfseries "Item comment count":} <review count>,}\\
+\texttt{\quad\quad\quad\quad {\bfseries "Item distance":} <distance>}\\
 \texttt{\quad\quad\quad \}}\\
 \texttt{\quad\quad \}}\\
 \texttt{\quad \}}\\
@@ -84,12 +84,12 @@ Below we describe the memory data structures and common operations.
 \label{lst:dynamic-json}
 \rule{\columnwidth}{1pt}
 \raggedright
-\texttt{\{ "Query": <user query>,}\\
-\texttt{\quad "Filter": \{}\\
-\texttt{\quad\quad "filter type": <distance/reviews/price/rating/category>,}\\
-\texttt{\quad\quad "rank type": <1: ascending, 0: descending, none>\}}\\
-\texttt{\quad "Location": <user location>,}\\
-\texttt{\quad "Time": <request time> \}}\\
+\texttt{\{ {\bfseries "Query":} <user query>,}\\
+\texttt{\quad {\bfseries "Filter":} \{}\\
+\texttt{\quad\quad {\bfseries "filter type":} <distance/reviews/price/rating/category>,}\\
+\texttt{\quad\quad {\bfseries "rank type":} <1: ascending, 0: descending, none>\}}\\
+\texttt{\quad {\bfseries "Location":} <user location>,}\\
+\texttt{\quad {\bfseries "Time":} <request time> \}}\\
 \rule{\columnwidth}{1pt}
 \end{listing}
 
@@ -170,25 +170,25 @@ The gradient updates follow \( \mathcal{U} \leftarrow \mathcal{U} - \eta \frac{\
 
 The GPU-parallel training procedure of the weighted attention-range recommender can be summarized by the following pseudocode.
 
-\begin{listing}[H]
+\begin{algorithm}[H]
 \caption{Attention-Range-Controlled Recommender with Weight Layers (GPU; Pseudocode)}
 \label{lst:gpu-weighted-mf}
 \rule{\columnwidth}{1pt}
 \raggedright
-\texttt{Input: user set $U$, item set $I$, rating matrix $R$, rank $k$, learning rate $\eta$, regularization $\lambda$, epochs num\_epochs, attention ranges $\{K_n\}$}\\
-\texttt{Output: model set $\{\hat{\mathcal{R}}^n\}$ for different attention ranges}\\
-\texttt{for each $K_n$ in $\{K_n\}$ do}\\
-\texttt{\quad initialize $\mathcal{U}^n \in \mathbb{R}^{m \times k}$ and $\mathcal{V}^n \in \mathbb{R}^{n \times k}$ and move to GPU}\\
-\texttt{\quad for epoch = 1 to num\_epochs do}\\
-\texttt{\quad\quad compute $\hat{\mathcal{R}}^n = \sum_{i=1}^N \mathcal{W}_i^n \circ (\mathcal{U}^n \Sigma \mathcal{V}^{nT})$}\\
-\texttt{\quad\quad compute gradients $\partial \mathcal{L}^n/\partial \mathcal{U}^n$ and $\partial \mathcal{L}^n/\partial \mathcal{V}^n$}\\
-\texttt{\quad\quad update $\mathcal{U}^n \leftarrow \mathcal{U}^n - \eta \,\partial \mathcal{L}^n/\partial \mathcal{U}^n$}\\
-\texttt{\quad\quad update $\mathcal{V}^n \leftarrow \mathcal{V}^n - \eta \,\partial \mathcal{L}^n/\partial \mathcal{V}^n$}\\
-\texttt{\quad end for}\\
-\texttt{\quad save $\hat{\mathcal{R}}^n$ from GPU to CPU}\\
-\texttt{end for and return $\{\hat{\mathcal{R}}^n\}$}\\
+\texttt{\textbf{Input:} user set $U$, item set $I$, rating matrix $R$, rank $k$, learning rate $\eta$, regularization $\lambda$, epochs num\_epochs, attention ranges $\{K_n\}$}\\
+\texttt{\textbf{Output:} model set $\{\hat{\mathcal{R}}^n\}$ for different attention ranges}\\
+\texttt{\textbf{for} each $K_n$ in $\{K_n\}$ \textbf{do}}\\
+\texttt{\quad \textbf{initialize} $\mathcal{U}^n \in \mathbb{R}^{m \times k}$ and $\mathcal{V}^n \in \mathbb{R}^{n \times k}$ and move to GPU}\\
+\texttt{\quad \textbf{for} epoch = 1 to num\_epochs \textbf{do}}\\
+\texttt{\quad\quad \textbf{compute} $\hat{\mathcal{R}}^n = \sum_{i=1}^N \mathcal{W}_i^n \circ (\mathcal{U}^n \Sigma \mathcal{V}^{nT})$}\\
+\texttt{\quad\quad \textbf{compute} gradients $\partial \mathcal{L}^n/\partial \mathcal{U}^n$ and $\partial \mathcal{L}^n/\partial \mathcal{V}^n$}\\
+\texttt{\quad\quad \textbf{update} $\mathcal{U}^n \leftarrow \mathcal{U}^n - \eta \,\partial \mathcal{L}^n/\partial \mathcal{U}^n$}\\
+\texttt{\quad\quad \textbf{update} $\mathcal{V}^n \leftarrow \mathcal{V}^n - \eta \,\partial \mathcal{L}^n/\partial \mathcal{V}^n$}\\
+\texttt{\quad \textbf{end for}}\\
+\texttt{\quad \textbf{save} $\hat{\mathcal{R}}^n$ from GPU to CPU}\\
+\texttt{\textbf{end for} and \textbf{return} $\{\hat{\mathcal{R}}^n\}$}\\
 \rule{\columnwidth}{1pt}
-\end{listing}
+\end{algorithm}
 
 \begin{figure}[h!]
     \centering
@@ -209,48 +209,48 @@ For qualitative detection, the LLM's semantic analysis does not reliably yield a
 For quantitative estimation, the LLM attempts to infer when the user's interest shift occurred and estimate the high-attention ratio, and then select the sub-model whose attention-range parameter just exceeds the inferred ratio. This approach depends on accurate shift detection and few-shot capabilities, and in our experimental setting it is less effective than qualitative detection.
 
 \paragraph{LLM-Based Adaptive Long--Short-Term Recommender}
-Based on Listing~\ref{lst:gpu-weighted-mf} and the quantitative shift estimation approach above, we propose the following LLM-based adaptive long--short-term recommendation procedure.
+Based on Algorithm~\ref{lst:gpu-weighted-mf} and the quantitative shift estimation approach above, we propose the following LLM-based adaptive long--short-term recommendation procedure.
 
-\begin{listing}[H]
+\begin{algorithm}[H]
 \caption{Interest Shift Detection and Model Scheduling (Pseudocode)}
 \label{lst:model-scheduling}
 \rule{\columnwidth}{1pt}
 \raggedright
-\texttt{Input: user profile set $\{P_u\}$, model set $\{\hat{\mathcal{R}}^n\}$}\\
-\texttt{Output: scheduled model $\{\hat{\mathcal{R}}^*_u\}$}\\
-\texttt{for each user profile $P_u$ do}\\
-\texttt{\quad Sew Agent analyzes interest change and computes $\Delta I_u$}\\
-\texttt{\quad if $\Delta I_u$ exceeds a threshold then}\\
-\texttt{\quad\quad select $\hat{\mathcal{R}}^*_u = \arg\max_{n}\,\text{Fitness}(K_n,\Delta I_u)$}\\
-\texttt{\quad else keep the current model}\\
-\texttt{\quad save $\hat{\mathcal{R}}^*_u$}\\
-\texttt{end for and return $\{\hat{\mathcal{R}}^*_u\}$}\\
+\texttt{\textbf{Input:} user profile set $\{P_u\}$, model set $\{\hat{\mathcal{R}}^n\}$}\\
+\texttt{\textbf{Output:} scheduled model $\{\hat{\mathcal{R}}^*_u\}$}\\
+\texttt{\textbf{for} each user profile $P_u$ \textbf{do}}\\
+\texttt{\quad Sew Agent analyzes interest change and \textbf{computes} $\Delta I_u$}\\
+\texttt{\quad \textbf{if} $\Delta I_u$ exceeds a threshold \textbf{then}}\\
+\texttt{\quad\quad \textbf{select} $\hat{\mathcal{R}}^*_u = \arg\max_{n}\,\text{Fitness}(K_n,\Delta I_u)$}\\
+\texttt{\quad \textbf{else} keep the current model}\\
+\texttt{\quad \textbf{save} $\hat{\mathcal{R}}^*_u$}\\
+\texttt{\textbf{end for} and \textbf{return} $\{\hat{\mathcal{R}}^*_u\}$}\\
 \rule{\columnwidth}{1pt}
-\end{listing}
+\end{algorithm}
 
 \subsubsection{Semantic Content Recommendation}
 \paragraph{Vectorization and Similarity-Based Recall}
 Chapter~2 introduced content-based recommendation methods. In this work, we adopt three common NLP vectorization models/toolkits: TF--IDF, BERT, and spaCy. We first generate a set of query terms via the LLM-based framework and vectorize these terms. The resulting vectors are used to compute user--item similarities and produce recommendation lists. The advantage of using an LLM is that it provides stronger semantic understanding and generation capabilities, capturing subtle changes in user preferences and enabling higher-level semantic analysis and preference modeling for more accurate and personalized recommendations.
 
-\begin{listing}[H]
+\begin{algorithm}[H]
 \caption{Vectorization and Similarity-Based Recall (Pseudocode)}
 \label{lst:vectorize-recall}
 \rule{\columnwidth}{1pt}
 \raggedright
-\texttt{Input: users $\{u\}$, items $\{i\}$, top-$N$, vectorizer (TF--IDF/BERT/spaCy)}\\
-\texttt{Output: recommendation list}\\
-\texttt{for each item $i$ do}\\
-\texttt{\quad if TF--IDF then compute TF--IDF vector $\mathbf{v}_i$}\\
-\texttt{\quad else if BERT then preprocess $\text{Doc}_i$ and compute $\mathbf{v}_i=\text{BERT}(\text{Doc}_i)$}\\
-\texttt{\quad else if spaCy then preprocess, parse, NER, and compute embedding vector $\mathbf{v}_i$}\\
-\texttt{end for}\\
-\texttt{for each user $u$ do}\\
-\texttt{\quad compute preference vector $\mathbf{p}_u = \frac{1}{|\mathcal{I}_u|}\sum_{i\in\mathcal{I}_u}\mathbf{v}_i$}\\
-\texttt{\quad for each candidate item $i$ do compute $\text{sim}(u,i)=\mathbf{p}_u\cdot\mathbf{v}_i$}\\
-\texttt{\quad rank items by similarity and return top-$N$}\\
-\texttt{end for}\\
+\texttt{\textbf{Input:} users $\{u\}$, items $\{i\}$, top-$N$, vectorizer (TF--IDF/BERT/spaCy)}\\
+\texttt{\textbf{Output:} recommendation list}\\
+\texttt{\textbf{for} each item $i$ \textbf{do}}\\
+\texttt{\quad \textbf{if} TF--IDF \textbf{then} \textbf{compute} TF--IDF vector $\mathbf{v}_i$}\\
+\texttt{\quad \textbf{else if} BERT \textbf{then} preprocess $\text{Doc}_i$ and \textbf{compute} $\mathbf{v}_i=\text{BERT}(\text{Doc}_i)$}\\
+\texttt{\quad \textbf{else if} spaCy \textbf{then} preprocess, parse, NER, and \textbf{compute} embedding vector $\mathbf{v}_i$}\\
+\texttt{\textbf{end for}}\\
+\texttt{\textbf{for} each user $u$ \textbf{do}}\\
+\texttt{\quad \textbf{compute} preference vector $\mathbf{p}_u = \frac{1}{|\mathcal{I}_u|}\sum_{i\in\mathcal{I}_u}\mathbf{v}_i$}\\
+\texttt{\quad \textbf{for} each candidate item $i$ \textbf{do} \textbf{compute} $\text{sim}(u,i)=\mathbf{p}_u\cdot\mathbf{v}_i$}\\
+\texttt{\quad \textbf{rank} items by similarity and \textbf{return} top-$N$}\\
+\texttt{\textbf{end for}}\\
 \rule{\columnwidth}{1pt}
-\end{listing}
+\end{algorithm}
 
 \paragraph{Regular-Expression Matching and Threshold Filtering}
 In practical vectorization and retrieval, we observed several special cases and applied corresponding corrections~\cite{phantom_menace,guardians_galaxy,force_awakens,mandalorian}. In general, similarity-based recall can be implemented in three ways: (i) direct string-level regular-expression matching, (ii) embedding similarity-based recall, and (iii) collaborative-filtering-based recall from interaction logs. Collaborative-filtering-based recall and its LLM-based optimization were introduced earlier; here we focus on correcting semantic drift in embedding-based recall using regex matching and threshold filtering.
@@ -294,26 +294,26 @@ We model the correction process as follows. Suppose we have query terms \( Q_1, 
 
 The corresponding pseudocode is shown below.
 
-\begin{listing}[H]
+\begin{algorithm}[H]
 \caption{Query-Term-Based Item Recall and Ranking with Thresholding and Regex (Pseudocode)}
 \label{lst:query-recall}
 \rule{\columnwidth}{1pt}
 \raggedright
-\texttt{Input: query set $\{Q_i\}$, item database, threshold $\theta$}\\
-\texttt{Output: recalled item list Final\_R}\\
-\texttt{Initialize Final\_R = []}\\
-\texttt{for each query $Q_i$ do}\\
-\texttt{\quad vectorize $Q_i$ to $\mathbf{v}_{Q_i}$; Temp\_R = []}\\
-\texttt{\quad for each item $j$ in database do}\\
-\texttt{\quad\quad vectorize item $j$ to $\mathbf{v}_j$ and compute sim}\\
-\texttt{\quad\quad if sim($\mathbf{v}_{Q_i},\mathbf{v}_j$) $> \theta$ then add $j$ to Temp\_R}\\
-\texttt{\quad end for}\\
-\texttt{\quad if Temp\_R not empty then sort Temp\_R by sim desc and merge into Final\_R}\\
-\texttt{end for}\\
-\texttt{if Final\_R empty then perform regex matching, sort matches, and insert into Final\_R}\\
-\texttt{return Final\_R}\\
+\texttt{\textbf{Input:} query set $\{Q_i\}$, item database, threshold $\theta$}\\
+\texttt{\textbf{Output:} recalled item list Final\_R}\\
+\texttt{\textbf{Initialize} Final\_R = []}\\
+\texttt{\textbf{for} each query $Q_i$ \textbf{do}}\\
+\texttt{\quad \textbf{vectorize} $Q_i$ to $\mathbf{v}_{Q_i}$; Temp\_R = []}\\
+\texttt{\quad \textbf{for} each item $j$ in database \textbf{do}}\\
+\texttt{\quad\quad \textbf{vectorize} item $j$ to $\mathbf{v}_j$ and \textbf{compute} sim}\\
+\texttt{\quad\quad \textbf{if} sim($\mathbf{v}_{Q_i},\mathbf{v}_j$) $> \theta$ \textbf{then} add $j$ to Temp\_R}\\
+\texttt{\quad \textbf{end for}}\\
+\texttt{\quad \textbf{if} Temp\_R not empty \textbf{then} sort Temp\_R by sim desc and merge into Final\_R}\\
+\texttt{\textbf{end for}}\\
+\texttt{\textbf{if} Final\_R empty \textbf{then} perform regex matching, sort matches, and insert into Final\_R}\\
+\texttt{\textbf{return} Final\_R}\\
 \rule{\columnwidth}{1pt}
-\end{listing}
+\end{algorithm}
 
 \paragraph{LLM-Based Query--Search Recommendation Architecture}
 A pretrained LLM can analyze a user's interaction history to predict a set of keywords that the user may use in the next search. These keywords are then fed into retrieval and ranking to optimize recommendation. Direct LLM-based retrieval is inefficient; generating query terms and using a retrieval engine is significantly more efficient. The procedure is:
@@ -326,26 +326,26 @@ Q = \text{PTM}(H),
 \end{equation}
 where \( Q=\{q_1,q_2,\ldots,q_n\} \) is the predicted query set.
 
-3) \textbf{Retrieval using Listing~\ref{lst:query-recall}.}\; For each \( q_i \), retrieve similar items:
+3) \textbf{Retrieval using Algorithm~\ref{lst:query-recall}.}\; For each \( q_i \), retrieve similar items:
 \begin{equation}
 R_{q_i} = \text{FindSimilarItems}(q_i,\theta,\text{top\_n}).
 \end{equation}
 
 The pseudocode is as follows.
 
-\begin{listing}[H]
+\begin{algorithm}[H]
 \caption{Pretrained-LLM-Based Query--Search Recommendation (Pseudocode)}
 \label{lst:query-search}
 \rule{\columnwidth}{1pt}
 \raggedright
-\texttt{Input: interaction history $H$, item database, threshold $\theta$}\\
-\texttt{Output: recalled item list Final\_R}\\
-\texttt{Initialize Final\_R = []}\\
-\texttt{Use pretrained LLM to produce query set $Q=\{q_1,\ldots,q_n\}$}\\
-\texttt{for each query $q$ in $Q$ do invoke threshold+regex corrected recall (Listing~\ref{lst:query-recall})}\\
-\texttt{return Final\_R}\\
+\texttt{\textbf{Input:} interaction history $H$, item database, threshold $\theta$}\\
+\texttt{\textbf{Output:} recalled item list Final\_R}\\
+\texttt{\textbf{Initialize} Final\_R = []}\\
+\texttt{\textbf{Use} pretrained LLM to produce query set $Q=\{q_1,\ldots,q_n\}$}\\
+\texttt{\textbf{for} each query $q$ in $Q$ \textbf{do} invoke threshold+regex corrected recall (Algorithm~\ref{lst:query-recall})}\\
+\texttt{\textbf{return} Final\_R}\\
 \rule{\columnwidth}{1pt}
-\end{listing}
+\end{algorithm}
 
 Through these steps, the pretrained LLM generates plausible future query terms from historical interactions, and the retrieval system performs thresholded similarity matching with regex correction, enabling content-similarity recommendation with reduced LLM overhead.
 
@@ -355,7 +355,7 @@ This section introduces a behavior-aware correction method that uses the optimiz
 
 Let a user's interaction history be \( H=\{h_1,\ldots,h_k\} \). As above, a pretrained LLM predicts a query sequence \( Q=\{q_1,\ldots,q_n\} \) and obtains coarse recall results \( R_{q_i}=\text{FindSimilarItems}(q_i,\theta,\text{top\_n}) \). We then perform behavior-based aligned correction as follows:
 
-\textbf{Behavior-based correction recall.}\; For each coarse-recalled item \( r\in R_{q_i} \), we use the attention-range-controlled model (Listing~\ref{lst:gpu-weighted-mf}) to perform further recall and then fuse results. Let \( R=\bigcup_{i=1}^n R_{q_i} \). For each \( r\in R \), we obtain:
+\textbf{Behavior-based correction recall.}\; For each coarse-recalled item \( r\in R_{q_i} \), we use the attention-range-controlled model (Algorithm~\ref{lst:gpu-weighted-mf}) to perform further recall and then fuse results. Let \( R=\bigcup_{i=1}^n R_{q_i} \). For each \( r\in R \), we obtain:
 \[
 V_r = \hat{\mathcal{R}}_n(r),
 \]
@@ -376,31 +376,31 @@ where \( w_r \) is a weight for item \( r \), and \( \text{score}(v,r) \) measur
 
 The overall procedure is summarized below.
 
-\begin{listing}[H]
+\begin{algorithm}[H]
 \caption{Behavior-Aligned Correction for Query--Search Recall (Pseudocode)}
 \label{lst:hybrid-align}
 \rule{\columnwidth}{1pt}
 \raggedright
-\texttt{Input: interaction history $H$, item database, threshold $\theta$}\\
-\texttt{Output: final ranked list}\\
-\texttt{Initialize Final\_R = []}\\
-\texttt{Use pretrained LLM to generate queries $Q=\{q_1,\ldots,q_n\}$}\\
-\texttt{for each query $q$ do}\\
+\texttt{\textbf{Input:} interaction history $H$, item database, threshold $\theta$}\\
+\texttt{\textbf{Output:} final ranked list}\\
+\texttt{\textbf{Initialize} Final\_R = []}\\
+\texttt{\textbf{Use} pretrained LLM to generate queries $Q=\{q_1,\ldots,q_n\}$}\\
+\texttt{\textbf{for} each query $q$ \textbf{do}}\\
 \texttt{\quad $R_q=\text{FindSimilarItems}(q,\theta,\text{top\_n})$; Intermediate\_R=[]}\\
-\texttt{\quad for each item $r$ in $R_q$ do}\\
+\texttt{\quad \textbf{for} each item $r$ in $R_q$ \textbf{do}}\\
 \texttt{\quad\quad $V_r=\hat{\mathcal{R}}_n(r)$; add $V_r$ to Intermediate\_R}\\
-\texttt{\quad end for; merge Intermediate\_R into Final\_R}\\
-\texttt{end for}\\
-\texttt{Compute composite scores $S(v)$ for candidates and sort to return final list}\\
+\texttt{\quad \textbf{end for}; merge Intermediate\_R into Final\_R}\\
+\texttt{\textbf{end for}}\\
+\texttt{\textbf{Compute} composite scores $S(v)$ for candidates and sort to \textbf{return} final list}\\
 \rule{\columnwidth}{1pt}
-\end{listing}
+\end{algorithm}
 
 \paragraph{LLM-Driven Adaptive Hybrid Recommender System}
 Building upon the above components, we describe the final integrated design. First, using the adaptive matrix factorization network, we obtain a family of sub-models with different attention ranges, enabling item representations at different time scales. The LLM then qualitatively (or quantitatively, in significant cases) infers whether a user's short-term interest has shifted substantially relative to long-term preferences, and selects an appropriate sub-model for behavior-based recall.
 
 Second, the content-based recommender with regex matching and threshold filtering predicts the next likely search queries from the user's historical textual signals and performs similarity-based coarse recall.
 
-Finally, given both the behavior-based correction model and the content-based recall results, we apply the fusion framework in Listing~\ref{lst:hybrid-align} to correct content recall using behavioral signals. The final ranked list thus jointly reflects both item content semantics and user interaction behaviors, and is returned for evaluation.
+Finally, given both the behavior-based correction model and the content-based recall results, we apply the fusion framework in Algorithm~\ref{lst:hybrid-align} to correct content recall using behavioral signals. The final ranked list thus jointly reflects both item content semantics and user interaction behaviors, and is returned for evaluation.
 
 \begin{figure}[h!]
     \centering

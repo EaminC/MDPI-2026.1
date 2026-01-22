@@ -65,6 +65,17 @@
 % Add packages and commands here. The following packages are loaded in our class file: fontenc, inputenc, calc, indentfirst, fancyhdr, graphicx, epstopdf, lastpage, ifthen, float, amsmath, amssymb, lineno, setspace, enumitem, mathpazo, booktabs, titlesec, etoolbox, tabto, xcolor, colortbl, soul, multirow, microtype, tikz, totcount, changepage, attrib, upgreek, array, tabularx, pbox, ragged2e, tocloft, marginnote, marginfix, enotez, amsthm, natbib, hyperref, cleveref, scrextend, url, geometry, newfloat, caption, draftwatermark, seqsplit
 % cleveref: load \crefname definitions after \begin{document}
 
+% Algorithms (for pseudocode blocks)
+\usepackage{algorithm}
+
+% Ensure bold monospace is available (for \texttt + \textbf in pseudocode/listings)
+\usepackage{inconsolata}
+
+% Make \paragraph behave like a small bold heading (not run-in)
+% MDPI class loads titlesec already.
+\titleformat{\paragraph}[block]{\bfseries}{ }{0pt}{}
+\titlespacing*{\paragraph}{0pt}{0.75em}{0.25em}
+
 %=================================================================
 % Please use the following mathematics environments: Theorem, Lemma, Corollary, Proposition, Characterization, Property, Problem, Example, ExamplesandDefinitions, Hypothesis, Remark, Definition, Notation, Assumption
 %% For proofs, please use the proof environment (the amsthm package is loaded by the MDPI class).

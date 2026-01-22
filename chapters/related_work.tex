@@ -1,4 +1,4 @@
-% !TeX root = ../thuthesis-example.tex
+% !TeX root = ../main.tex
 \section{Related Work}
 
 \subsection{Taxonomy and Representative Paradigms}
@@ -31,7 +31,7 @@ where \(N(a)\) is the neighborhood of users most similar to \(U_a\).
 \end{equation}
 and the predicted rating of user \(U_u\) on item \(I_i\) is:
 
-\begin{figure}[H]
+\begin{figure}[t]
     \centering
     \includegraphics[width=0.95\linewidth]{figures/CF.pdf}
     \caption{Illustration of collaborative filtering (user-based vs. item-based views).}
@@ -117,24 +117,24 @@ We define training, validation, and test errors~\cite{robbins1951} using mean sq
 
 The overall procedure can be summarized by the following pseudocode.
 
-\begin{listing}[t]
+\begin{algorithm}[t]
 \caption{SVD-Based Recommender System Algorithm (Pseudocode)}
 \label{lst:svd-recsys}
 \rule{\columnwidth}{1pt}
 \raggedright
-\texttt{Input: user set $U$, item set $I$, rating matrix $R$, rank $k$, learning rate $\eta$, regularization $\lambda$, epochs num\_epochs}\\
-\texttt{Output: predicted rating matrix $\hat{R}$}\\
-\texttt{Initialize $U_k \in \mathbb{R}^{m \times k}$ and $V_k \in \mathbb{R}^{n \times k}$ randomly}\\
-\texttt{for epoch = 1 to num\_epochs do}\\
-\texttt{\quad for each observed $(u,i)$ in $R$ do}\\
-\texttt{\quad\quad compute error $e_{ui} = R_{ui} - (U_k \Sigma_k V_k^T)_{ui}$}\\
-\texttt{\quad\quad update $U_k[u,:] \leftarrow U_k[u,:] + \eta (e_{ui} V_k[i,:] - \lambda U_k[u,:])$}\\
-\texttt{\quad\quad update $V_k[i,:] \leftarrow V_k[i,:] + \eta (e_{ui} U_k[u,:] - \lambda V_k[i,:])$}\\
-\texttt{\quad end for}\\
-\texttt{end for}\\
-\texttt{Compute $\hat{R} = U_k \Sigma_k V_k^T$ and return $\hat{R}$}\\
+\texttt{\textbf{Input:} user set $U$, item set $I$, rating matrix $R$, rank $k$, learning rate $\eta$, regularization $\lambda$, epochs num\_epochs}\\
+\texttt{\textbf{Output:} predicted rating matrix $\hat{R}$}\\
+\texttt{\textbf{Initialize} $U_k \in \mathbb{R}^{m \times k}$ and $V_k \in \mathbb{R}^{n \times k}$ randomly}\\
+\texttt{\textbf{for} epoch = 1 to num\_epochs \textbf{do}}\\
+\texttt{\quad \textbf{for} each observed $(u,i)$ in $R$ \textbf{do}}\\
+\texttt{\quad\quad \textbf{compute} error $e_{ui} = R_{ui} - (U_k \Sigma_k V_k^T)_{ui}$}\\
+\texttt{\quad\quad \textbf{update} $U_k[u,:] \leftarrow U_k[u,:] + \eta (e_{ui} V_k[i,:] - \lambda U_k[u,:])$}\\
+\texttt{\quad\quad \textbf{update} $V_k[i,:] \leftarrow V_k[i,:] + \eta (e_{ui} U_k[u,:] - \lambda V_k[i,:])$}\\
+\texttt{\quad \textbf{end for}}\\
+\texttt{\textbf{end for}}\\
+\texttt{\textbf{Compute} $\hat{R} = U_k \Sigma_k V_k^T$ and \textbf{return} $\hat{R}$}\\
 \rule{\columnwidth}{1pt}
-\end{listing}
+\end{algorithm}
 
 \subsection{Content-Based Recommender System Algorithms}
 In contrast to interaction-based methods, content-based recommender systems do not treat interaction logs as the primary behavioral signal for optimizing an objective from a purely statistical perspective. Instead, they vectorize users and items through semantic analysis. Therefore, a reasonable feature extraction strategy and high-quality embeddings are essential, as embedding quality directly determines recommendation performance. This section introduces three vectorization methods used for optimization in subsequent experiments.
@@ -201,19 +201,19 @@ Similar to BERT-based representations, spaCy-based vectors can be used to constr
 \subsubsection{Similarity-Based Retrieval for Recommendation}
 With vector representations of users and items, recommendation can be performed by computing similarity scores and ranking. The following pseudocode illustrates the procedure:
 
-\begin{listing}[H]
+\begin{algorithm}[H]
 \caption{Similarity-Ranking-Based Recommendation (Pseudocode)}
 \label{lst:sim-ranking}
 \rule{\columnwidth}{1pt}
 \raggedright
-\texttt{Input: user preference vector $\mathbf{p}_u$, item vectors $\{\mathbf{v}_i\}$, top-$N$}\\
-\texttt{Output: ranked recommendation list}\\
-\texttt{for each candidate item $i$ do}\\
-\texttt{\quad compute similarity $\text{sim}(u,i) = \mathbf{p}_u \cdot \mathbf{v}_i$}\\
-\texttt{end for}\\
-\texttt{Sort candidates by similarity in descending order and return top-$N$}\\
+\texttt{\textbf{Input:} user preference vector $\mathbf{p}_u$, item vectors $\{\mathbf{v}_i\}$, top-$N$}\\
+\texttt{\textbf{Output:} ranked recommendation list}\\
+\texttt{\textbf{for} each candidate item $i$ \textbf{do}}\\
+\texttt{\quad \textbf{compute} similarity $\text{sim}(u,i) = \mathbf{p}_u \cdot \mathbf{v}_i$}\\
+\texttt{\textbf{end for}}\\
+\texttt{\textbf{Sort} candidates by similarity in descending order and \textbf{return} top-$N$}\\
 \rule{\columnwidth}{1pt}
-\end{listing}
+\end{algorithm}
 
 \subsection{Summary}
 This chapter reviewed the fundamental ideas and several widely used implementations of interaction-based and content-based recommender systems. These methods also serve as the foundations for the LLM-based hybrid recommender system framework proposed and implemented in Chapter~3. In the following, we will present how LLMs can be used to optimize these baseline implementations and how to align and fuse interaction-based and content-based recommenders into a unified system.
