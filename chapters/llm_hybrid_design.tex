@@ -391,7 +391,9 @@ The overall procedure is summarized below.
 \texttt{\quad\quad $V_r=\hat{\mathcal{R}}_n(r)$; add $V_r$ to Intermediate\_R}\\
 \texttt{\quad \textbf{end for}; merge Intermediate\_R into Final\_R}\\
 \texttt{\textbf{end for}}\\
-\texttt{\textbf{Compute} composite scores $S(v)$ for candidates and sort to \textbf{return} final list}\\
+\texttt{\textbf{Compute} composite scores $S(v)$ for candidates}\\
+\texttt{\textbf{Sort} candidates by $S(v)$ in descending order}\\
+\texttt{\textbf{return} Final\_R}\\
 \rule{\columnwidth}{1pt}
 \end{algorithm}
 
