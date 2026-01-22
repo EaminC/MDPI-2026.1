@@ -132,7 +132,8 @@ The overall procedure can be summarized by the following pseudocode.
 \texttt{\quad\quad \textbf{update} $V_k[i,:] \leftarrow V_k[i,:] + \eta (e_{ui} U_k[u,:] - \lambda V_k[i,:])$}\\
 \texttt{\quad \textbf{end for}}\\
 \texttt{\textbf{end for}}\\
-\texttt{\textbf{Compute} $\hat{R} = U_k \Sigma_k V_k^T$ and \textbf{return} $\hat{R}$}\\
+\texttt{\textbf{Compute} $\hat{R} = U_k \Sigma_k V_k^T$}\\
+\texttt{\textbf{return} $\hat{R}$}\\
 \rule{\columnwidth}{1pt}
 \end{algorithm}
 
@@ -211,7 +212,8 @@ With vector representations of users and items, recommendation can be performed 
 \texttt{\textbf{for} each candidate item $i$ \textbf{do}}\\
 \texttt{\quad \textbf{compute} similarity $\text{sim}(u,i) = \mathbf{p}_u \cdot \mathbf{v}_i$}\\
 \texttt{\textbf{end for}}\\
-\texttt{\textbf{Sort} candidates by similarity in descending order and \textbf{return} top-$N$}\\
+\texttt{\textbf{Sort} candidates by similarity in descending order}\\
+\texttt{\textbf{return} top-$N$ items}\\
 \rule{\columnwidth}{1pt}
 \end{algorithm}
 

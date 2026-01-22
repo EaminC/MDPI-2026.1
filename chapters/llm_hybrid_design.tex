@@ -134,16 +134,17 @@ After describing the functionality of each agent component, we outline the overa
 \paragraph{Linear-Network-Based Long--Short-Term Recommender}
 As discussed above, when modeling large-scale historical interactions, model-based interaction recommenders are often used, under the assumption that users exhibit stable, extractable features over long-term interactions. However, traditional matrix-based methods do not explicitly consider the temporal effectiveness of interactions. In particular, a user may experience a substantial recent interest shift, yet long-ago interactions are weighted equally to recent ones, reducing sensitivity to short-term changes. Therefore, we introduce time-aware weighting to adjust the attention range: recent interactions receive higher attention weights, while earlier interactions are down-weighted. This section focuses on the introduction of a linear weighting layer and its effect on the algorithm.
 
-Consider an SVD-based interaction recommender. To emphasize recent behaviors, we introduce multiple weight modulation layers. Each element \( W_{ij}^n \) in a weight matrix \( W^n \) can be defined by:
+Consider an SVD-based interaction recommender. To emphasize recent behaviors, we introduce multiple weight modulation layers that reweight interactions by recency. To avoid confusion with the item index \(i\) used in \(R_{ui}\), we use \(t\in\{1,\ldots,T\}\) to index the position of an interaction in a user's time-ordered history (from oldest to most recent), and let \(T\) denote the total length (time horizon) of that history. A simple linear recency modulation can be written as:
 \begin{equation}
-W_{ij}^n = \left( \frac{j_n}{i} \right)^{-1}
+w_t^{(n)}=\frac{t}{T}.
 \end{equation}
 
-More generally, each weight modulation can be abstracted as an activation function:
+More generally, we use a smooth activation (sigmoid) to control the attention range at different time scales. Let \(j_n\in\{1,\ldots,T\}\) denote the high-attention center index at time scale \(n\), and define the normalized center as \(c_n = j_n/T\in(0,1]\). Let \(\sigma(x)=\frac{1}{1+\exp(-x)}\). Then:
 \begin{equation}
-W_{ij}^n = \frac{1}{1 + e^{-\alpha_n (j_n/i - \beta_n)}}
+w_t^{(n)}=\sigma\!\left(\alpha_n\left(\frac{t}{T}-c_n\right)\right)
+= \frac{1}{1+\exp\!\left(-\alpha_n\left(\frac{t}{T}-c_n\right)\right)} ,
 \end{equation}
-where \( \alpha_n \) and \( \beta_n \) are tunable parameters controlling the shape and center of the \( n \)-th modulation function. Here, \( j_n \) denotes the \( n \)-th high-attention time (i.e., the recent interaction time at time scale \( n \)), and \( i \) denotes the total time horizon of recorded interactions.
+where \(\alpha_n\) controls the slope and \(c_n\) controls the center of the \(n\)-th modulation. In the matrix form used below, we associate each observed interaction \((u,i)\) with its position \(t(u,i)\) in user \(u\)'s time-sorted interaction sequence (e.g., obtained by sorting that user's interactions by timestamp and taking the rank). We then broadcast the recency weights to the interaction matrix as \(W_{ui}^n = w_{t(u,i)}^{(n)}\).
 
 Let \( \eta \) denote the learning rate. The gradient updates become:
 \begin{equation}
@@ -186,7 +187,8 @@ The GPU-parallel training procedure of the weighted attention-range recommender 
 \texttt{\quad\quad \textbf{update} $\mathcal{V}^n \leftarrow \mathcal{V}^n - \eta \,\partial \mathcal{L}^n/\partial \mathcal{V}^n$}\\
 \texttt{\quad \textbf{end for}}\\
 \texttt{\quad \textbf{save} $\hat{\mathcal{R}}^n$ from GPU to CPU}\\
-\texttt{\textbf{end for} and \textbf{return} $\{\hat{\mathcal{R}}^n\}$}\\
+\texttt{\textbf{end for}}\\
+\texttt{\textbf{return} $\{\hat{\mathcal{R}}^n\}$}\\
 \rule{\columnwidth}{1pt}
 \end{algorithm}
 
@@ -224,7 +226,8 @@ Based on Algorithm~\ref{lst:gpu-weighted-mf} and the quantitative shift estimati
 \texttt{\quad\quad \textbf{select} $\hat{\mathcal{R}}^*_u = \arg\max_{n}\,\text{Fitness}(K_n,\Delta I_u)$}\\
 \texttt{\quad \textbf{else} keep the current model}\\
 \texttt{\quad \textbf{save} $\hat{\mathcal{R}}^*_u$}\\
-\texttt{\textbf{end for} and \textbf{return} $\{\hat{\mathcal{R}}^*_u\}$}\\
+\texttt{\textbf{end for}}\\
+\texttt{\textbf{return} $\{\hat{\mathcal{R}}^*_u\}$}\\
 \rule{\columnwidth}{1pt}
 \end{algorithm}
 
@@ -238,7 +241,7 @@ Chapter~2 introduced content-based recommendation methods. In this work, we adop
 \rule{\columnwidth}{1pt}
 \raggedright
 \texttt{\textbf{Input:} users $\{u\}$, items $\{i\}$, top-$N$, vectorizer (TF--IDF/BERT/spaCy)}\\
-\texttt{\textbf{Output:} recommendation list}\\
+\texttt{\textbf{Output:} recommendation lists $\{L_u\}$}\\
 \texttt{\textbf{for} each item $i$ \textbf{do}}\\
 \texttt{\quad \textbf{if} TF--IDF \textbf{then} \textbf{compute} TF--IDF vector $\mathbf{v}_i$}\\
 \texttt{\quad \textbf{else if} BERT \textbf{then} preprocess $\text{Doc}_i$ and \textbf{compute} $\mathbf{v}_i=\text{BERT}(\text{Doc}_i)$}\\
@@ -246,9 +249,13 @@ Chapter~2 introduced content-based recommendation methods. In this work, we adop
 \texttt{\textbf{end for}}\\
 \texttt{\textbf{for} each user $u$ \textbf{do}}\\
 \texttt{\quad \textbf{compute} preference vector $\mathbf{p}_u = \frac{1}{|\mathcal{I}_u|}\sum_{i\in\mathcal{I}_u}\mathbf{v}_i$}\\
-\texttt{\quad \textbf{for} each candidate item $i$ \textbf{do} \textbf{compute} $\text{sim}(u,i)=\mathbf{p}_u\cdot\mathbf{v}_i$}\\
-\texttt{\quad \textbf{rank} items by similarity and \textbf{return} top-$N$}\\
+\texttt{\quad \textbf{for} each candidate item $i$ \textbf{do}}\\
+\texttt{\quad\quad \textbf{compute} $\text{sim}(u,i)=\mathbf{p}_u\cdot\mathbf{v}_i$}\\
+\texttt{\quad \textbf{end for}}\\
+\texttt{\quad \textbf{rank} items by similarity to obtain $L_u$}\\
+\texttt{\quad \textbf{save} $L_u$}\\
 \texttt{\textbf{end for}}\\
+\texttt{\textbf{return} $\{L_u\}$}\\
 \rule{\columnwidth}{1pt}
 \end{algorithm}
 
@@ -342,7 +349,10 @@ The pseudocode is as follows.
 \texttt{\textbf{Output:} recalled item list Final\_R}\\
 \texttt{\textbf{Initialize} Final\_R = []}\\
 \texttt{\textbf{Use} pretrained LLM to produce query set $Q=\{q_1,\ldots,q_n\}$}\\
-\texttt{\textbf{for} each query $q$ in $Q$ \textbf{do} invoke threshold+regex corrected recall (Algorithm~\ref{lst:query-recall})}\\
+\texttt{\textbf{for} each query $q$ in $Q$ \textbf{do}}\\
+\texttt{\quad invoke threshold+regex corrected recall (Algorithm~\ref{lst:query-recall}) to get $R_q$}\\
+\texttt{\quad merge $R_q$ into Final\_R}\\
+\texttt{\textbf{end for}}\\
 \texttt{\textbf{return} Final\_R}\\
 \rule{\columnwidth}{1pt}
 \end{algorithm}
