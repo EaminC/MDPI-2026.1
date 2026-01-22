@@ -1,0 +1,418 @@
+% !TeX root = ../thuthesis-example.tex
+\section{Hybrid Recommender System Design with LLM Agents}
+
+\subsection{Overview}
+In recent years, large language model (LLM) technologies~\cite{wang2022pre} have advanced rapidly and have addressed a range of long-standing open problems in natural language processing. In this work, we primarily adopt GPT-3.5-turbo~\cite{brown2020language} as a pretrained LLM to provide an interface for semantic understanding. Leveraging their extensive pretrained knowledge and strong semantic modeling capabilities, LLMs offer powerful functional primitives for recommender systems, including semantic feature extraction, workflow understanding, and sentiment analysis. These capabilities form the foundation of the hybrid recommender system framework proposed in this work.
+
+The necessity and design advantages of using LLMs in our framework can be summarized as follows:
+
+\textbf{Interest understanding.}\quad In recommender systems, many interaction signals are not stored as quantitative scores in an interaction matrix. Such signals include, but are not limited to, user profiles, item profiles, user textual reviews, and the textual content associated with historical interactions. These heterogeneous data sources lack a unified processing interface under traditional NLP pipelines; LLMs provide a stable and unified semantic interface. In this work, an LLM-based agent~\cite{wang2024survey} analyzes a user's profile, constructs a persona via agent memory, and updates it over time. A user's dynamic interaction history can also be incorporated into memory updates.
+
+\textbf{Few-shot interaction prediction.}\quad Although training LLMs requires large corpora, pretrained LLMs can generalize to new tasks with only a small number of examples, or even in zero-shot settings, by leveraging the knowledge encoded during pretraining. In recommendation, it is often sufficient to provide limited samples to determine whether a user's short-term interests have shifted markedly, enabling the pretrained model to infer and generalize accordingly.
+
+\textbf{Enhanced interest feature generation.}\quad Using an LLM to directly generate recommendations is often inefficient. First, pretrained models do not contain the exact user--item--interaction corpus of the target system. Second, LLM inference is more expensive than conventional models, and thus can be less suitable for real-time recommendation scenarios. To address this, Li et~al. proposed GPT4Rec~\cite{li2023gpt4rec}, a coarse-retrieval paradigm that uses an LLM to semantically analyze a user's interaction history and infer likely next-step search queries. The retrieved query terms are then used in a retrieval system to obtain coarse candidates, substantially reducing LLM compute while enabling subsequent reranking to improve quality.
+
+\subsection{Method}
+\subsubsection{Item Recommendation: An Overview}
+This section focuses on an agent-based framework design for item recommendation. In urban life, item recommendation spans many aspects of daily activities, including food, clothing, housing, and transportation. Our framework is designed to cover the full set of fields that real-world items may contain. Beyond common interaction features and entity metadata in typical online recommender systems, we explicitly incorporate real-world urban information, such as geo-locations, map data, and integrated city databases. Under this general framework, many conventional online recommender systems with agent memory updates can be viewed as special cases (i.e., item recommendation without geographic information). Therefore, the recommendation targets can be either online-interactable items or real-world POIs enriched with urban spatial information.
+
+\begin{figure}
+    \centering
+    \IfFileExists{figures/POI_Rec.png}{%
+        \includegraphics[width=0.4\linewidth]{figures/POI_Rec.png}%
+    }{%
+        \fbox{Missing figure: figures/POI_Rec.png}%
+    }
+    \caption{Illustration of item/POI recommendation.}
+    \label{fig:poi-rec}
+\end{figure}
+
+\subsubsection{Agent Memory Module: Storage and Updates}
+\paragraph{Hybrid Static--Dynamic Memory}
+An external memory module is the core of an agent. For a single user, the agent is initialized with the user's profile and interaction history as \emph{static memory}. As the recommendation process unfolds, \emph{dynamic memory} is formed from real-time context updates and requires a corresponding update mechanism. Therefore, a comprehensive key--value design and update strategy constitutes the core of memory module design. In practical settings, missing values are common; corresponding methods should either implement field-specific handling or adopt a generalizable memory update mechanism.
+
+Different from traditional recommenders that primarily store an interaction matrix and explicit ratings, our memory module stores richer user information and interaction context for each user, retaining more attributes for each single interaction. This enables the recommender to mine more signals during recommendation and produce more accurate results. Moreover, because this memory is stored largely in explicit textual form, semantic reasoning over it was challenging prior to LLMs. With LLMs, the system can infer user profiles at the semantic level in greater detail, and the resulting reasoning is more interpretable to developers.
+
+Below we describe the memory data structures and common operations.
+
+\textbf{(a) Data structure.}\quad Agent memory can be divided into two components: static information and dynamic information. Static information does not change during the recommendation process but is maintained as the system updates over time. Dynamic information is associated with the user's current spatiotemporal context. Both components contribute to modeling the user's preferences but play different roles. Static information primarily captures long-term, relatively stable preference patterns, which supports long-term interest inference and passive recommendation. In real systems, users may issue requests that deviate from long-term preferences, e.g., due to special times (holidays), special locations (unusual places), or short-term exploratory intents. In such cases, short-term recommendation should intervene, and dynamic information can provide necessary corrections to recommendation results.
+
+\textbf{Static information.}\quad Static information is explicitly stored in the database and contains two parts: identification information and interaction information. Identification information includes basic attributes such as name, age, and gender, as well as socio-economic attributes such as occupation, salary, and deposits, which can help construct user profiles. Interaction information differs from traditional interaction matrices: beyond preference fields, it explicitly stores interaction records, including spatiotemporal context and item review information stored in the database. The data structure is recorded in JSON format~\cite{rfc4627} and shown in Listing~\ref{lst:static-json}.
+
+\textbf{Dynamic information.}\quad Dynamic information is generated at the time of user request. Compared to conventional recommenders, with the semantic understanding capability of LLMs, the system can accept user-provided query strings, as well as spatiotemporal context and additional filtering constraints. The data structure is recorded in JSON format~\cite{rfc4627} and shown in Listing~\ref{lst:dynamic-json}.
+
+\begin{listing}[H]
+\caption{User Static Information (JSON-like Representation)}
+\label{lst:static-json}
+\rule{\columnwidth}{1pt}
+\raggedright
+\texttt{\{ "Identification Info": \{}\\
+\texttt{\quad "Name": <user name>,}\\
+\texttt{\quad "UserID": <unique identifier>,}\\
+\texttt{\quad "Age": <age>,}\\
+\texttt{\quad "Gender": <gender>,}\\
+\texttt{\quad "Salary": <salary>,}\\
+\texttt{\quad "Federation": <organization/group>,}\\
+\texttt{\quad "Work age": <years of work>,}\\
+\texttt{\quad "Deposit": <deposits>,}\\
+\texttt{\quad "Company": <company>,}\\
+\texttt{\quad "Home Address": <home address>}\\
+\texttt{\},}\\
+\texttt{"Interaction Info": \{}\\
+\texttt{\quad "Description of Favor": <preference description>,}\\
+\texttt{\quad "Interaction History": \{}\\
+\texttt{\quad\quad "Inter1": \{}\\
+\texttt{\quad\quad\quad "Time": <time>,}\\
+\texttt{\quad\quad\quad "Query": <query>,}\\
+\texttt{\quad\quad\quad "Filter": <filters>,}\\
+\texttt{\quad\quad\quad "Final decision": \{}\\
+\texttt{\quad\quad\quad\quad "Item name": <item name>,}\\
+\texttt{\quad\quad\quad\quad "Item category": <category>,}\\
+\texttt{\quad\quad\quad\quad "Item comment grade": <rating>,}\\
+\texttt{\quad\quad\quad\quad "Item price average": <avg price>,}\\
+\texttt{\quad\quad\quad\quad "Item comment count": <review count>,}\\
+\texttt{\quad\quad\quad\quad "Item distance": <distance>}\\
+\texttt{\quad\quad\quad \}}\\
+\texttt{\quad\quad \}}\\
+\texttt{\quad \}}\\
+\texttt{\}}\\
+\rule{\columnwidth}{1pt}
+\end{listing}
+
+\begin{listing}[H]
+\caption{User Dynamic Information (JSON-like Representation)}
+\label{lst:dynamic-json}
+\rule{\columnwidth}{1pt}
+\raggedright
+\texttt{\{ "Query": <user query>,}\\
+\texttt{\quad "Filter": \{}\\
+\texttt{\quad\quad "filter type": <distance/reviews/price/rating/category>,}\\
+\texttt{\quad\quad "rank type": <1: ascending, 0: descending, none>\}}\\
+\texttt{\quad "Location": <user location>,}\\
+\texttt{\quad "Time": <request time> \}}\\
+\rule{\columnwidth}{1pt}
+\end{listing}
+
+\paragraph{(b) Data operations}
+Based on the above memory data structures, we design a set of operations and memory update mechanisms. These operations are executed by a collection of specialized agents, each responsible for a specific function, and collectively they cooperate to complete recommendation. The key agent group and their operations are as follows:
+
+\textbf{Static memory initialization (Passive intent recognition; Pir Agent).}\quad During initialization, the agent reads static memory. The Pir Agent consumes basic user information and historical interactions to infer a passive intent profile and writes it into the \texttt{Interaction Info.Description of Favor} field.
+
+\textbf{Dynamic memory update (Active intent recognition; Air Agent).}\quad When receiving a user-initiated request, the Air Agent extracts the primary intent from the query, parses spatiotemporal signals, infers mixed intents, and updates agent memory accordingly.
+
+\textbf{Cross-updating hybrid memory (Supplement and Widen; Sew Agent).}\quad Within a recommendation round, Pir and Air not only read/update their own parts but also perform cross-updates. New dynamic interactions are written into static interaction history and static preference descriptions, while semantic features from static memory can serve as defaults when dynamic fields are missing.
+
+\textbf{Candidate recall (Gathering/Linkage Out-of Versatile Explorer; Glove Agent).}\quad After memory update, the system can use the memory to infer a temporary persona and retrieve candidates from the recommender, mimicking human retrieval behavior. Details are introduced later.
+
+\textbf{Reflection (Reasoning in General and Specific; Rings Agent).}\quad To improve explainability and ranking quality, the agent interprets each candidate result, evaluates whether it aligns with user preferences, and adjusts ranking accordingly.
+
+\textbf{Exploratory recommendation (PLAN-B Agent).}\quad In certain contexts, users may prefer non-stationary recommendations, e.g., special holidays, unusual locations, special requests, or when long-term interest drift is small. Exploratory recommendation can also address the long-tail issue by giving additional exposure to high-quality but under-exposed content in UGC platforms.
+
+\textbf{Feedback reception (Shake Agent).}\quad Traditional recommenders typically cannot significantly refine results for every user after returning recommendations. In our framework, the system can accept user feedback requests, interpret them, and iteratively refine recommendations.
+
+\begin{figure}[h!]
+    \centering
+    \IfFileExists{figures/agent8.pdf}{%
+        \includegraphics[width=0.85\linewidth]{figures/agent8.pdf}%
+    }{%
+        \fbox{Missing figure: figures/agent8.pdf}%
+    }
+    \caption{End-to-end POI recommendation workflow driven by LLM agents.}
+    \label{fig:agent-flow}
+\end{figure}
+
+\subsubsection{LLM-Agent-Based POI Recommendation Workflow}
+After describing the functionality of each agent component, we outline the overall recommendation workflow. Subsequent optimizations will focus on selected components within this framework. As suggested by the agent names, the recommendation system resembles a process of ``sewing a glove'', ``wearing rings'', and finally ``shaking hands'' with the user. The overall pipeline consists of: (i) memory initialization (Pir/Air and Sew), (ii) candidate recall (Glove, Rings, and Plan-B), and (iii) post-feedback (Shake).
+
+\textbf{Memory initialization.}\quad Pir and Air initialize the memory using static profiles and dynamic requests, respectively. The Sew Agent then performs cross-updates. Static memory is maintained, and the enriched dynamic request is passed to the subsequent recommendation steps.
+
+\textbf{Candidate recall.}\quad After sufficiently understanding the user via semantic reasoning, the system retrieves candidates. Recall includes regular recall for ordinary long-/short-term interests and exploratory recall for special scenarios.
+
+\textbf{Post-feedback.}\quad After returning results, the system interacts with the user once. If the user accepts the results, the process terminates and memory is updated. Otherwise, the reflection module is invoked to adjust the ranking until a satisfactory list is produced.
+
+\subsubsection{Long--Short-Term Interest Change Detection and Adaptive Recommendation}
+\paragraph{Linear-Network-Based Long--Short-Term Recommender}
+As discussed above, when modeling large-scale historical interactions, model-based interaction recommenders are often used, under the assumption that users exhibit stable, extractable features over long-term interactions. However, traditional matrix-based methods do not explicitly consider the temporal effectiveness of interactions. In particular, a user may experience a substantial recent interest shift, yet long-ago interactions are weighted equally to recent ones, reducing sensitivity to short-term changes. Therefore, we introduce time-aware weighting to adjust the attention range: recent interactions receive higher attention weights, while earlier interactions are down-weighted. This section focuses on the introduction of a linear weighting layer and its effect on the algorithm.
+
+Consider an SVD-based interaction recommender. To emphasize recent behaviors, we introduce multiple weight modulation layers. Each element \( W_{ij}^n \) in a weight matrix \( W^n \) can be defined by:
+\begin{equation}
+W_{ij}^n = \left( \frac{j_n}{i} \right)^{-1}
+\end{equation}
+
+More generally, each weight modulation can be abstracted as an activation function:
+\begin{equation}
+W_{ij}^n = \frac{1}{1 + e^{-\alpha_n (j_n/i - \beta_n)}}
+\end{equation}
+where \( \alpha_n \) and \( \beta_n \) are tunable parameters controlling the shape and center of the \( n \)-th modulation function. Here, \( j_n \) denotes the \( n \)-th high-attention time (i.e., the recent interaction time at time scale \( n \)), and \( i \) denotes the total time horizon of recorded interactions.
+
+Let \( \eta \) denote the learning rate. The gradient updates become:
+\begin{equation}
+U_k' = U_k - \eta \left( \frac{\partial \mathcal{L}}{\partial U_k} \right)
+=U_k - \eta \left( -2 \sum_{(u, i) \in \mathcal{K}} (R_{ui} - \sum_{n=1}^N W_{ui}^n \cdot (U_k \Sigma_k V_k^T)_{ui}) \sum_{n=1}^N W_{ui}^n V_k \Sigma_k + 2 \lambda U_k \right)
+\end{equation}
+\begin{equation}
+V_k' = V_k - \eta \left( \frac{\partial \mathcal{L}}{\partial V_k} \right)
+=V_k - \eta \left( -2 \sum_{(u, i) \in \mathcal{K}} (R_{ui} - \sum_{n=1}^N W_{ui}^n \cdot (U_k \Sigma_k V_k^T)_{ui}) \sum_{n=1}^N W_{ui}^n \Sigma_k^T U_k^T + 2 \lambda V_k \right)
+\end{equation}
+
+For conciseness and to leverage CUDA parallelism, the above computation can be reformulated using tensor operations. Let \( \circ \) denote element-wise multiplication. The predicted rating tensor becomes:
+\begin{equation}
+\hat{\mathcal{R}} = \sum_{n=1}^N \mathcal{W}_n \circ (\mathcal{U} \Sigma \mathcal{V}^T)
+\end{equation}
+
+The gradient updates follow \( \mathcal{U} \leftarrow \mathcal{U} - \eta \frac{\partial \mathcal{L}}{\partial \mathcal{U}} \) and \( \mathcal{V} \leftarrow \mathcal{V} - \eta \frac{\partial \mathcal{L}}{\partial \mathcal{V}} \), where:
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \mathcal{U}} = -2 \left( \mathcal{R} - \sum_{n=1}^N \mathcal{W}_n \circ (\mathcal{U} \Sigma \mathcal{V}^T) \right) \sum_{n=1}^N \mathcal{W}_n \circ (\mathcal{V} \Sigma) + 2 \lambda \mathcal{U}
+\end{equation}
+\begin{equation}
+\frac{\partial \mathcal{L}}{\partial \mathcal{V}} = -2 \left( \mathcal{R} - \sum_{n=1}^N \mathcal{W}_n \circ (\mathcal{U} \Sigma \mathcal{V}^T) \right)^T \sum_{n=1}^N \mathcal{W}_n \circ (\Sigma \mathcal{U}^T) + 2 \lambda \mathcal{V}
+\end{equation}
+
+The GPU-parallel training procedure of the weighted attention-range recommender can be summarized by the following pseudocode.
+
+\begin{listing}[H]
+\caption{Attention-Range-Controlled Recommender with Weight Layers (GPU; Pseudocode)}
+\label{lst:gpu-weighted-mf}
+\rule{\columnwidth}{1pt}
+\raggedright
+\texttt{Input: user set $U$, item set $I$, rating matrix $R$, rank $k$, learning rate $\eta$, regularization $\lambda$, epochs num\_epochs, attention ranges $\{K_n\}$}\\
+\texttt{Output: model set $\{\hat{\mathcal{R}}^n\}$ for different attention ranges}\\
+\texttt{for each $K_n$ in $\{K_n\}$ do}\\
+\texttt{\quad initialize $\mathcal{U}^n \in \mathbb{R}^{m \times k}$ and $\mathcal{V}^n \in \mathbb{R}^{n \times k}$ and move to GPU}\\
+\texttt{\quad for epoch = 1 to num\_epochs do}\\
+\texttt{\quad\quad compute $\hat{\mathcal{R}}^n = \sum_{i=1}^N \mathcal{W}_i^n \circ (\mathcal{U}^n \Sigma \mathcal{V}^{nT})$}\\
+\texttt{\quad\quad compute gradients $\partial \mathcal{L}^n/\partial \mathcal{U}^n$ and $\partial \mathcal{L}^n/\partial \mathcal{V}^n$}\\
+\texttt{\quad\quad update $\mathcal{U}^n \leftarrow \mathcal{U}^n - \eta \,\partial \mathcal{L}^n/\partial \mathcal{U}^n$}\\
+\texttt{\quad\quad update $\mathcal{V}^n \leftarrow \mathcal{V}^n - \eta \,\partial \mathcal{L}^n/\partial \mathcal{V}^n$}\\
+\texttt{\quad end for}\\
+\texttt{\quad save $\hat{\mathcal{R}}^n$ from GPU to CPU}\\
+\texttt{end for and return $\{\hat{\mathcal{R}}^n\}$}\\
+\rule{\columnwidth}{1pt}
+\end{listing}
+
+\begin{figure}[h!]
+    \centering
+    \IfFileExists{figures/MF.pdf}{%
+        \includegraphics[scale=0.6]{figures/MF.pdf}%
+    }{%
+        \fbox{Missing figure: figures/MF.pdf}%
+    }
+    \caption{Illustration of the weighted long--short-term recommendation network.}
+    \label{fig:mf-weighted}
+\end{figure}
+
+\paragraph{LLM-Based Preference Shift Identification}
+After obtaining a family of sub-models with different attention ranges, the key challenge is to select which model to schedule for a given user, which depends on detecting preference shifts. We consider two approaches: qualitative shift detection and quantitative shift estimation.
+
+For qualitative detection, the LLM's semantic analysis does not reliably yield an exact high-attention ratio. Instead, with a small number of prompts/examples, the LLM can provide a qualitative judgment of whether a user's short-term interests differ substantially from long-term interests. In this setting, short-term model parameters are shared across users, and the LLM selects between a long-term and a short-term model. Concretely, if the difference between long- and short-term interests is large, the short-term model is prioritized; if long-term preferences remain stable, the system maintains the long-term model with high probability and schedules an exploratory model with some probability~\cite{robbins1952some}.
+
+For quantitative estimation, the LLM attempts to infer when the user's interest shift occurred and estimate the high-attention ratio, and then select the sub-model whose attention-range parameter just exceeds the inferred ratio. This approach depends on accurate shift detection and few-shot capabilities, and in our experimental setting it is less effective than qualitative detection.
+
+\paragraph{LLM-Based Adaptive Long--Short-Term Recommender}
+Based on Listing~\ref{lst:gpu-weighted-mf} and the quantitative shift estimation approach above, we propose the following LLM-based adaptive long--short-term recommendation procedure.
+
+\begin{listing}[H]
+\caption{Interest Shift Detection and Model Scheduling (Pseudocode)}
+\label{lst:model-scheduling}
+\rule{\columnwidth}{1pt}
+\raggedright
+\texttt{Input: user profile set $\{P_u\}$, model set $\{\hat{\mathcal{R}}^n\}$}\\
+\texttt{Output: scheduled model $\{\hat{\mathcal{R}}^*_u\}$}\\
+\texttt{for each user profile $P_u$ do}\\
+\texttt{\quad Sew Agent analyzes interest change and computes $\Delta I_u$}\\
+\texttt{\quad if $\Delta I_u$ exceeds a threshold then}\\
+\texttt{\quad\quad select $\hat{\mathcal{R}}^*_u = \arg\max_{n}\,\text{Fitness}(K_n,\Delta I_u)$}\\
+\texttt{\quad else keep the current model}\\
+\texttt{\quad save $\hat{\mathcal{R}}^*_u$}\\
+\texttt{end for and return $\{\hat{\mathcal{R}}^*_u\}$}\\
+\rule{\columnwidth}{1pt}
+\end{listing}
+
+\subsubsection{Semantic Content Recommendation}
+\paragraph{Vectorization and Similarity-Based Recall}
+Chapter~2 introduced content-based recommendation methods. In this work, we adopt three common NLP vectorization models/toolkits: TF--IDF, BERT, and spaCy. We first generate a set of query terms via the LLM-based framework and vectorize these terms. The resulting vectors are used to compute user--item similarities and produce recommendation lists. The advantage of using an LLM is that it provides stronger semantic understanding and generation capabilities, capturing subtle changes in user preferences and enabling higher-level semantic analysis and preference modeling for more accurate and personalized recommendations.
+
+\begin{listing}[H]
+\caption{Vectorization and Similarity-Based Recall (Pseudocode)}
+\label{lst:vectorize-recall}
+\rule{\columnwidth}{1pt}
+\raggedright
+\texttt{Input: users $\{u\}$, items $\{i\}$, top-$N$, vectorizer (TF--IDF/BERT/spaCy)}\\
+\texttt{Output: recommendation list}\\
+\texttt{for each item $i$ do}\\
+\texttt{\quad if TF--IDF then compute TF--IDF vector $\mathbf{v}_i$}\\
+\texttt{\quad else if BERT then preprocess $\text{Doc}_i$ and compute $\mathbf{v}_i=\text{BERT}(\text{Doc}_i)$}\\
+\texttt{\quad else if spaCy then preprocess, parse, NER, and compute embedding vector $\mathbf{v}_i$}\\
+\texttt{end for}\\
+\texttt{for each user $u$ do}\\
+\texttt{\quad compute preference vector $\mathbf{p}_u = \frac{1}{|\mathcal{I}_u|}\sum_{i\in\mathcal{I}_u}\mathbf{v}_i$}\\
+\texttt{\quad for each candidate item $i$ do compute $\text{sim}(u,i)=\mathbf{p}_u\cdot\mathbf{v}_i$}\\
+\texttt{\quad rank items by similarity and return top-$N$}\\
+\texttt{end for}\\
+\rule{\columnwidth}{1pt}
+\end{listing}
+
+\paragraph{Regular-Expression Matching and Threshold Filtering}
+In practical vectorization and retrieval, we observed several special cases and applied corresponding corrections~\cite{phantom_menace,guardians_galaxy,force_awakens,mandalorian}. In general, similarity-based recall can be implemented in three ways: (i) direct string-level regular-expression matching, (ii) embedding similarity-based recall, and (iii) collaborative-filtering-based recall from interaction logs. Collaborative-filtering-based recall and its LLM-based optimization were introduced earlier; here we focus on correcting semantic drift in embedding-based recall using regex matching and threshold filtering.
+
+For example, in an existing retrieval system, searching for ``Star War''~\cite{phantom_menace} may tokenize and average ``Star'' and ``War'', and then retrieve items whose vectors are closest to the query vector. In practice, later Star Wars entries (e.g., \emph{Star Wars: The Force Awakens}) may contain subtitle tokens that deviate from the original query, resulting in low-priority retrieval under pure embedding similarity. Conversely, \emph{Guardians of the Galaxy}, which is thematically different, may be retrieved with high priority due to superficial lexical proximity (e.g., ``Guardian'' vs. ``War'', ``Star'' vs. ``Galaxy''). Additionally, \emph{The Mandalorian} as a Star Wars spin-off is highly relevant to Star Wars fans, yet its title shares few tokens with the original query and is difficult to retrieve by naive embedding similarity. The Mandalorian case can be further corrected using interaction-based recommendation and will be revisited in the fusion framework. This section proposes a correction strategy that combines direct regex matching and threshold filtering to mitigate semantic drift in embedding-based retrieval.
+
+% NOTE: Movie posters are removed to avoid copyright risks.
+% We keep the example as text-only and omit poster images.
+
+We model the correction process as follows. Suppose we have query terms \( Q_1, Q_2, \ldots, Q_n \). For each query \( Q_i \), we retrieve candidates \( R_{Q_i} = \{R_{Q_i1}, R_{Q_i2}, \ldots, R_{Q_im} \} \). Let \( \mathbf{v}_{Q_i} \) be the vector of \( Q_i \), and let \( \mathbf{v}_j \) be the vector of item \( \text{item}_j \) in the database. Define similarity \( \text{sim}(\mathbf{v}_{Q_i}, \mathbf{v}_j) \) and threshold \(\theta\). Let \( \text{Sorted}_{R_{Q_i}} \) be the similarity-sorted list, \( \text{Match} \) be regex matches, and \( \text{Final}_{R_{Q_i}} \) be the final recall list. The procedure is summarized below:
+
+1) \textbf{Vectorization.}\; Vectorize queries and items:
+\begin{equation}
+\mathbf{v}_{Q_i} = \text{Vectorize}(Q_i), \quad
+\mathbf{v}_j = \text{Vectorize}(\text{item}_j)\ \forall j.
+\end{equation}
+
+2) \textbf{Similarity and thresholding.}\; Filter items by:
+\begin{equation}
+\text{sim}(\mathbf{v}_{Q_i}, \mathbf{v}_j) > \theta.
+\end{equation}
+
+3) \textbf{Sorting.}\; Sort by decreasing similarity:
+\begin{equation}
+\text{Sorted}_{R_{Q_i}}=\{R_{Q_i1},R_{Q_i2},\ldots\}\ \text{with decreasing }\text{sim}(\mathbf{v}_{Q_i},\mathbf{v}_{R_{Q_ij}}).
+\end{equation}
+
+4) \textbf{Regex correction.}\; For insufficient recall, use regex matches:
+\begin{equation}
+\text{Match}=\{M_1,M_2,\ldots\}.
+\end{equation}
+
+5) \textbf{Fusion and insertion.}\; Produce:
+\begin{equation}
+\text{Final}_{R_{Q_i}} =
+\begin{cases}
+\text{Sorted}_{R_{Q_i}} + \text{Match}, & \text{if } \exists j:\text{sim}(\mathbf{v}_{Q_i},\mathbf{v}_j)>\theta,\\
+\text{Match}, & \text{otherwise}.
+\end{cases}
+\end{equation}
+
+The corresponding pseudocode is shown below.
+
+\begin{listing}[H]
+\caption{Query-Term-Based Item Recall and Ranking with Thresholding and Regex (Pseudocode)}
+\label{lst:query-recall}
+\rule{\columnwidth}{1pt}
+\raggedright
+\texttt{Input: query set $\{Q_i\}$, item database, threshold $\theta$}\\
+\texttt{Output: recalled item list Final\_R}\\
+\texttt{Initialize Final\_R = []}\\
+\texttt{for each query $Q_i$ do}\\
+\texttt{\quad vectorize $Q_i$ to $\mathbf{v}_{Q_i}$; Temp\_R = []}\\
+\texttt{\quad for each item $j$ in database do}\\
+\texttt{\quad\quad vectorize item $j$ to $\mathbf{v}_j$ and compute sim}\\
+\texttt{\quad\quad if sim($\mathbf{v}_{Q_i},\mathbf{v}_j$) $> \theta$ then add $j$ to Temp\_R}\\
+\texttt{\quad end for}\\
+\texttt{\quad if Temp\_R not empty then sort Temp\_R by sim desc and merge into Final\_R}\\
+\texttt{end for}\\
+\texttt{if Final\_R empty then perform regex matching, sort matches, and insert into Final\_R}\\
+\texttt{return Final\_R}\\
+\rule{\columnwidth}{1pt}
+\end{listing}
+
+\paragraph{LLM-Based Query--Search Recommendation Architecture}
+A pretrained LLM can analyze a user's interaction history to predict a set of keywords that the user may use in the next search. These keywords are then fed into retrieval and ranking to optimize recommendation. Direct LLM-based retrieval is inefficient; generating query terms and using a retrieval engine is significantly more efficient. The procedure is:
+
+1) \textbf{Interaction history initialization.}\; Represent the interaction history as \( H=\{h_1,h_2,\ldots,h_k\} \).
+
+2) \textbf{History analysis.}\; Use a pretrained LLM to generate predicted query terms:
+\begin{equation}
+Q = \text{PTM}(H),
+\end{equation}
+where \( Q=\{q_1,q_2,\ldots,q_n\} \) is the predicted query set.
+
+3) \textbf{Retrieval using Listing~\ref{lst:query-recall}.}\; For each \( q_i \), retrieve similar items:
+\begin{equation}
+R_{q_i} = \text{FindSimilarItems}(q_i,\theta,\text{top\_n}).
+\end{equation}
+
+The pseudocode is as follows.
+
+\begin{listing}[H]
+\caption{Pretrained-LLM-Based Query--Search Recommendation (Pseudocode)}
+\label{lst:query-search}
+\rule{\columnwidth}{1pt}
+\raggedright
+\texttt{Input: interaction history $H$, item database, threshold $\theta$}\\
+\texttt{Output: recalled item list Final\_R}\\
+\texttt{Initialize Final\_R = []}\\
+\texttt{Use pretrained LLM to produce query set $Q=\{q_1,\ldots,q_n\}$}\\
+\texttt{for each query $q$ in $Q$ do invoke threshold+regex corrected recall (Listing~\ref{lst:query-recall})}\\
+\texttt{return Final\_R}\\
+\rule{\columnwidth}{1pt}
+\end{listing}
+
+Through these steps, the pretrained LLM generates plausible future query terms from historical interactions, and the retrieval system performs thresholded similarity matching with regex correction, enabling content-similarity recommendation with reduced LLM overhead.
+
+\subsubsection{LLM-Based Hybrid Intent Recognition and Recommendation Framework}
+\paragraph{Aligned Recall for Content--Interaction Hybrid Recommendation}
+This section introduces a behavior-aware correction method that uses the optimized interaction-based model in Section~3.2.3 to correct the content-similarity recall results produced in Section~3.2.4, which lack behavioral signals.
+
+Let a user's interaction history be \( H=\{h_1,\ldots,h_k\} \). As above, a pretrained LLM predicts a query sequence \( Q=\{q_1,\ldots,q_n\} \) and obtains coarse recall results \( R_{q_i}=\text{FindSimilarItems}(q_i,\theta,\text{top\_n}) \). We then perform behavior-based aligned correction as follows:
+
+\textbf{Behavior-based correction recall.}\; For each coarse-recalled item \( r\in R_{q_i} \), we use the attention-range-controlled model (Listing~\ref{lst:gpu-weighted-mf}) to perform further recall and then fuse results. Let \( R=\bigcup_{i=1}^n R_{q_i} \). For each \( r\in R \), we obtain:
+\[
+V_r = \hat{\mathcal{R}}_n(r),
+\]
+where \( \hat{\mathcal{R}}_n(r) \) denotes further recall using the model from the weighted attention-range recommender.
+
+\textbf{(1) Recall alignment and fusion.}\; Fuse all \( V_r \) to form:
+\[
+F=\bigcup_{r\in R} V_r.
+\]
+
+\textbf{(2) Composite scoring.}\; For each item \( v\in F \), compute a composite score:
+\[
+S(v)=\sum_{r\in R} w_r\cdot \text{score}(v,r),
+\]
+where \( w_r \) is a weight for item \( r \), and \( \text{score}(v,r) \) measures similarity between \( v \) and \( r \).
+
+\textbf{(3) Ranking.}\; Sort \( F \) by \( S(v) \) to obtain the final recommendation list.
+
+The overall procedure is summarized below.
+
+\begin{listing}[H]
+\caption{Behavior-Aligned Correction for Query--Search Recall (Pseudocode)}
+\label{lst:hybrid-align}
+\rule{\columnwidth}{1pt}
+\raggedright
+\texttt{Input: interaction history $H$, item database, threshold $\theta$}\\
+\texttt{Output: final ranked list}\\
+\texttt{Initialize Final\_R = []}\\
+\texttt{Use pretrained LLM to generate queries $Q=\{q_1,\ldots,q_n\}$}\\
+\texttt{for each query $q$ do}\\
+\texttt{\quad $R_q=\text{FindSimilarItems}(q,\theta,\text{top\_n})$; Intermediate\_R=[]}\\
+\texttt{\quad for each item $r$ in $R_q$ do}\\
+\texttt{\quad\quad $V_r=\hat{\mathcal{R}}_n(r)$; add $V_r$ to Intermediate\_R}\\
+\texttt{\quad end for; merge Intermediate\_R into Final\_R}\\
+\texttt{end for}\\
+\texttt{Compute composite scores $S(v)$ for candidates and sort to return final list}\\
+\rule{\columnwidth}{1pt}
+\end{listing}
+
+\paragraph{LLM-Driven Adaptive Hybrid Recommender System}
+Building upon the above components, we describe the final integrated design. First, using the adaptive matrix factorization network, we obtain a family of sub-models with different attention ranges, enabling item representations at different time scales. The LLM then qualitatively (or quantitatively, in significant cases) infers whether a user's short-term interest has shifted substantially relative to long-term preferences, and selects an appropriate sub-model for behavior-based recall.
+
+Second, the content-based recommender with regex matching and threshold filtering predicts the next likely search queries from the user's historical textual signals and performs similarity-based coarse recall.
+
+Finally, given both the behavior-based correction model and the content-based recall results, we apply the fusion framework in Listing~\ref{lst:hybrid-align} to correct content recall using behavioral signals. The final ranked list thus jointly reflects both item content semantics and user interaction behaviors, and is returned for evaluation.
+
+\begin{figure}[h!]
+    \centering
+    \IfFileExists{figures/new1.pdf}{%
+        \includegraphics[scale=0.45]{figures/new1.pdf}%
+    }{%
+        \fbox{Missing figure: figures/new1.pdf}%
+    }
+    \caption{LLM-driven adaptive hybrid recommender system framework.}
+    \label{fig:llm-hybrid-framework}
+\end{figure}
+
+\subsection{Summary}
+This chapter presented (i) an LLM-enhanced interaction-based long--short-term adaptive recommendation network, (ii) a content-based recommendation network corrected by regex matching and threshold filtering, and (iii) an integrated framework combining Query--Search and behavior--content alignment for hybrid recommendation. We provided mathematical formulations, algorithmic designs, and an overall system architecture. This chapter constitutes the core theoretical foundation of this work and directly supports the subsequent experimental evaluation.
+

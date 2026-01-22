@@ -1,0 +1,219 @@
+% !TeX root = ../thuthesis-example.tex
+\section{Related Work}
+
+\subsection{Taxonomy and Representative Paradigms}
+Recommender systems can be broadly categorized into interaction-based recommender systems (Interaction-Based RS), content-based recommender systems (Content-Based RS), and hybrid recommender systems (Hybrid RS)~\cite{ko2022survey}. With the release of large language models such as ChatGPT, their strong natural language understanding and generalization over prior knowledge have further enabled an emerging line of agent-based recommender systems built upon LLM technologies.
+
+Interaction-based methods rely on large-scale user--item interaction records and explicit feedback (e.g., ratings). A representative class is collaborative filtering (CF)~\cite{resnick1994grouplens}, which leverages similarity across users and/or items. However, such methods depend critically on the amount and quality of historical interactions, and typically face severe cold-start issues in early deployment and in cross-domain settings. Content-based methods focus on feature extraction and vectorization of users/items as content, deriving similarity from representations. This alleviates heavy dependence on interaction logs and can generalize to new users/items, but performance is sensitive to representation quality. Hybrid systems seek to reconcile these complementary strengths via alignment and fusion strategies (e.g., weighted combination, switching, cascaded or mixed integration)~\cite{ko2022survey}.
+
+\subsection{Collaborative Filtering (CF)}
+Resnick~\cite{resnick1994grouplens} and colleagues were among the first to introduce collaborative filtering into recommender systems. CF is motivated by the intuition that similar users tend to prefer similar items, and that similar items tend to attract similar users. Common CF variants include user-based CF~\cite{goldberg1992using}, item-based CF~\cite{sarwar2001item}, and model-based CF~\cite{carlkadie1998empirical}.
+
+\textbf{User-based CF.}\quad Given a user--item rating matrix, user-based CF represents each user's ratings as a vector and computes user--user similarity. A widely used similarity measure is the Pearson correlation coefficient~\cite{pearson1896vii}. Specifically, the similarity between users \(U_a\) and \(U_b\) is:
+
+\begin{equation}
+\text{sim}(U_a, U_b) = \frac{\sum_{i \in I_{a} \cap I_{b}} (S_{a,i} - \bar{S}_a)(S_{b,i} - \bar{S}_b)}{\sqrt{\sum_{i \in I_{a} \cap I_{b}} (S_{a,i} - \bar{S}_a)^2 \sum_{i \in I_{a} \cap I_{b}} (S_{b,i} - \bar{S}_b)^2}}
+\label{eq:pearson-user-sim}
+\end{equation}
+where \(S_{a,i}\) and \(S_{b,i}\) denote ratings of users \(U_a\) and \(U_b\) on item \(i\), \(\bar{S}_a\) and \(\bar{S}_b\) are average ratings, and \(I_a \cap I_b\) is the set of co-rated items. A predicted rating for user \(U_a\) on item \(i_j\) can be computed as:
+
+\begin{equation}
+\hat{S}_{a,j} = \bar{S}_a + \frac{\sum_{b \in N(a)} \text{sim}(U_a, U_b) \cdot (S_{b,j} - \bar{S}_b)}{\sum_{b \in N(a)} |\text{sim}(U_a, U_b)|}
+\label{eq:ubcf-pred}
+\end{equation}
+where \(N(a)\) is the neighborhood of users most similar to \(U_a\).
+
+\textbf{Item-based CF.}\quad Item-based CF is symmetric in spirit: it represents items as vectors over user interactions and computes item--item similarity. In practice, user cardinality is often much larger than item cardinality; item-based CF reduces the number of similarity computations while increasing vector dimensionality. The similarity between items \(I_i\) and \(I_j\) is:
+
+\begin{equation}
+\text{sim}(I_i, I_j) = \frac{\sum_{u \in U_{i} \cap U_{j}} (S_{u,i} - \bar{S}_i)(S_{u,j} - \bar{S}_j)}{\sqrt{\sum_{u \in U_{i} \cap U_{j}} (S_{u,i} - \bar{S}_i)^2 \sum_{u \in U_{i} \cap U_{j}} (S_{u,j} - \bar{S}_j)^2}}
+\label{eq:item-sim}
+\end{equation}
+and the predicted rating of user \(U_u\) on item \(I_i\) is:
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{figures/CF.pdf}
+    \caption{Illustration of collaborative filtering (user-based vs. item-based views).}
+    \label{fig:cf-illustration}
+\end{figure}
+
+\begin{equation}
+\hat{S}_{u,i} = \frac{\sum_{j \in N(i)} \text{sim}(I_i, I_j) \cdot S_{u,j}}{\sum_{j \in N(i)} |\text{sim}(I_i, I_j)|}
+\label{eq:ibcf-pred}
+\end{equation}
+
+\subsection{LLM- and Agent-Based Recommender Systems}
+LLMs have enabled stronger semantic understanding and long-sequence modeling, and have thus been explored in recommender systems for representation learning, intent inference, candidate reranking, and workflow orchestration~\cite{xu2024prompting}. Transformer-based architectures~\cite{vaswani2017attention} support sequence modeling over interaction histories, while LLMs' semantic capabilities can help mitigate cold-start issues when interaction data is sparse. Representative systems include BERT4Rec~\cite{sun2019bert4rec}, Transformers4Rec~\cite{khorasani2021tf4rec}, and GPT4Rec~\cite{li2023gpt4rec}.
+
+% Figure removed per request.
+
+\subsection{Interaction-Based Recommender System Algorithms}
+Building upon the overview of recommender system techniques introduced in Chapter~1, this chapter selects representative interaction-based and content-based algorithms that align with the characteristics of large language model (LLM) technologies. We briefly review important prior work and the core principles behind these methods. Specifically, we first introduce problem formulations for interaction-based recommendation and foundational, widely used matrix-factorization-based training approaches. We then review common content vectorization techniques and similarity-based retrieval methods.
+
+\subsubsection{Modeling Interaction-Based Recommender Systems}
+For interaction-based recommender systems, the most critical element is to extract statistical regularities from large-scale user interaction behaviors, while paying comparatively less attention to the user and the item content themselves. In modern recommender systems, extracting interaction features via matrix factorization is motivated by several common assumptions and empirical observations:
+(1) \emph{Large-scale interaction data are available}. Such data are often massive and provide the foundation for designing interaction-based algorithms. Interaction signals are also diverse. The most common signal is explicit ratings, which we primarily adopt in this work. Other signals include clicks and purchases; different interaction types can be assigned different strengths (e.g., clicks as weak signals and purchases as strong signals) and mapped onto a unified rating scale if needed.
+(2) \emph{The interaction matrix is extremely high-dimensional and rapidly evolving}. The interaction matrix is formed by the Cartesian product of users and items, with dimensionality equal to the product of the number of users and the number of items. In modern systems, both users and items are large-scale and continuously updated, resulting in matrices that are high-dimensional and change quickly. Under this setting, factoring the original high-dimensional matrix into lower-dimensional user and item vectors can dramatically reduce overall storage and update costs while preserving desired modeling fidelity.
+(3) \emph{The interaction matrix is highly sparse}. In practice, each user interacts with only a small fraction of all items, and most items are interacted with by a small subset of users. Moreover, recommender systems commonly exhibit a pronounced long-tail effect~\cite{Anderson2006,Brynjolfsson2006}, where a small number of head items account for the majority of interactions, while the vast majority of items collectively contribute only a small portion. Consequently, although the matrix is large, it is extremely sparse~\cite{steck2019embarrassingly}, and most entries are missing. Performing feature extraction directly on the sparse matrix is inefficient; representing users and items as low-dimensional vectors improves both storage and computation efficiency.
+(4) \emph{User preferences exhibit latent stability over time}. Behavior-based methods typically assume that user interactions are driven by latent preferences that remain stable to some extent over time. This latent structure can be inferred from historical interactions and leveraged to predict future behaviors.
+
+Under these assumptions, an interaction-based recommender system can be formulated as follows. Given a user set \( \mathcal{U} = \{u_1, u_2, \ldots, u_m\} \) and an item set \( \mathcal{I} = \{i_1, i_2, \ldots, i_n\} \), the interaction state space is represented by a matrix \( \mathbf{R} \in \mathbb{R}^{m \times n} \), where \( \mathbf{R}_{ui} \) denotes the rating of user \( u \) for item \( i \). If user \( u \) has not rated item \( i \), then \( \mathbf{R}_{ui} \) is missing. The goal is to predict a user's ratings on a held-out subset of items given observed ratings on a subset \( \{I_1, I_2, \ldots, I_k\} \), i.e., to infer \( \{I_{k+1}, \ldots, I_n\} \) using the first \( k \) observations, and then recommend items the user is likely to prefer. To evaluate recommendation quality, predicted values \( \{I'_{k+1}, \ldots, I'_n\} \) can be compared with ground-truth values \( \{I_{k+1}, \ldots, I_n\} \); higher similarity indicates better performance.
+
+Although such an evaluation protocol is widely used, it has notable limitations. Because the recommender system intervenes in and alters the interaction sequence, it is difficult to disentangle the causal effect of exposure from intrinsic user preferences; moreover, collecting real-time logged bandit feedback at scale is challenging. These issues are expected to be better addressed in real-world deployment settings and with richer online datasets in future work.
+
+\subsubsection{Matrix-Factorization-Based Machine Learning Methods}
+Among interaction-based recommendation algorithms, a widely used approach is based on matrix singular value decomposition. We first decompose a rating matrix \( R \) into three matrices: a user feature matrix \( U \), a singular value matrix \( \Sigma \), and an item feature matrix \( V \):
+\begin{equation}
+R \approx U \Sigma V^T \label{eq:svd-factorization}
+\end{equation}
+
+In real-world systems where dimensionality is very large, we typically perform dimensionality reduction by keeping the top \( k \) singular values and vectors, yielding a truncated interaction matrix \( \hat{R} \), which is used for recommendation:
+\begin{equation}
+R \approx U_k \Sigma_k V_k^T \triangleq \hat{R} \label{eq:svd-truncation}
+\end{equation}
+
+To improve prediction accuracy, we commonly minimize the following regularized loss:
+\begin{equation}
+\mathcal{L} = \sum_{(u, i) \in \mathcal{K}} (R_{ui} - (U_k \Sigma_k V_k^T)_{ui})^2 + \lambda (\|U_k\|^2 + \|V_k\|^2) \label{eq:svd-loss}
+\end{equation}
+where \( \mathcal{K} \) is the set of observed ratings, \( \lambda \) is a regularization parameter, and \( \|\cdot\|^2 \) denotes the Frobenius norm for regularization to mitigate overfitting.
+
+During learning, we initialize \( U_k \) and \( V_k \) randomly and optimize \( \mathcal{L} \) via gradient descent~\cite{cauchy1847}. Let \( \eta \) denote the learning rate; gradients are computed and parameters are updated as:
+
+\begin{equation}
+U_k' = U_k - \eta \frac{\partial \mathcal{L}}{\partial U_k}
+      = U_k - 2 \sum_{(u, i) \in \mathcal{K}} (R_{ui} - (U_k \Sigma_k V_k^T)_{ui}) V_k \Sigma_k + 2 \lambda U_k
+\label{eq:update-uk}
+\end{equation}
+
+\begin{equation}
+V_k' = V_k - \eta \frac{\partial \mathcal{L}}{\partial V_k}
+      = V_k - 2 \sum_{(u, i) \in \mathcal{K}} (R_{ui} - (U_k \Sigma_k V_k^T)_{ui}) \Sigma_k^T U_k^T + 2 \lambda V_k
+\label{eq:update-vk}
+\end{equation}
+
+We split the observed dataset \( \mathcal{K} \) into a training set \( \mathcal{K}_{\text{train}} \), a validation set \( \mathcal{K}_{\text{val}} \), and a test set \( \mathcal{K}_{\text{test}} \):
+\begin{equation}
+\mathcal{K} = \mathcal{K}_{\text{train}} \cup \mathcal{K}_{\text{val}} \cup \mathcal{K}_{\text{test}}
+\label{eq:data-split}
+\end{equation}
+
+We define training, validation, and test errors~\cite{robbins1951} using mean squared error (MSE):
+\begin{equation}
+\text{MSE}_{\text{train}} = \frac{1}{|\mathcal{K}_{\text{train}}|} \sum_{(u, i) \in \mathcal{K}_{\text{train}}} (R_{ui} - \hat{R}_{ui})^2
+\label{eq:mse-train}
+\end{equation}
+
+\begin{equation}
+\text{MSE}_{\text{val}} = \frac{1}{|\mathcal{K}_{\text{val}}|} \sum_{(u, i) \in \mathcal{K}_{\text{val}}} (R_{ui} - \hat{R}_{ui})^2
+\label{eq:mse-val}
+\end{equation}
+
+\begin{equation}
+\text{MSE}_{\text{test}} = \frac{1}{|\mathcal{K}_{\text{test}}|} \sum_{(u, i) \in \mathcal{K}_{\text{test}}} (R_{ui} - \hat{R}_{ui})^2
+\label{eq:mse-test}
+\end{equation}
+
+The overall procedure can be summarized by the following pseudocode.
+
+\begin{listing}[t]
+\caption{SVD-Based Recommender System Algorithm (Pseudocode)}
+\label{lst:svd-recsys}
+\rule{\columnwidth}{1pt}
+\raggedright
+\texttt{Input: user set $U$, item set $I$, rating matrix $R$, rank $k$, learning rate $\eta$, regularization $\lambda$, epochs num\_epochs}\\
+\texttt{Output: predicted rating matrix $\hat{R}$}\\
+\texttt{Initialize $U_k \in \mathbb{R}^{m \times k}$ and $V_k \in \mathbb{R}^{n \times k}$ randomly}\\
+\texttt{for epoch = 1 to num\_epochs do}\\
+\texttt{\quad for each observed $(u,i)$ in $R$ do}\\
+\texttt{\quad\quad compute error $e_{ui} = R_{ui} - (U_k \Sigma_k V_k^T)_{ui}$}\\
+\texttt{\quad\quad update $U_k[u,:] \leftarrow U_k[u,:] + \eta (e_{ui} V_k[i,:] - \lambda U_k[u,:])$}\\
+\texttt{\quad\quad update $V_k[i,:] \leftarrow V_k[i,:] + \eta (e_{ui} U_k[u,:] - \lambda V_k[i,:])$}\\
+\texttt{\quad end for}\\
+\texttt{end for}\\
+\texttt{Compute $\hat{R} = U_k \Sigma_k V_k^T$ and return $\hat{R}$}\\
+\rule{\columnwidth}{1pt}
+\end{listing}
+
+\subsection{Content-Based Recommender System Algorithms}
+In contrast to interaction-based methods, content-based recommender systems do not treat interaction logs as the primary behavioral signal for optimizing an objective from a purely statistical perspective. Instead, they vectorize users and items through semantic analysis. Therefore, a reasonable feature extraction strategy and high-quality embeddings are essential, as embedding quality directly determines recommendation performance. This section introduces three vectorization methods used for optimization in subsequent experiments.
+
+\subsubsection{Content Vectorization Methods}
+Using the same notation as above, we describe three vectorization methods and their applications to content-based recommendation.
+
+\paragraph{TF--IDF}
+TF--IDF (Term Frequency--Inverse Document Frequency)~\cite{jones1972statistical} is widely used in NLP to measure the importance of a token in a document. In recommender systems, it can be adapted to measure the importance of an item in a user's interaction history. TF--IDF consists of two components: term frequency (TF) and inverse document frequency (IDF); in recommendation, these correspond to item frequency and inverse user frequency.
+
+\textbf{Item frequency (TF)} measures how often item \( i \) appears in user \( u \)'s history:
+\begin{equation}
+\text{TF}(i, u) = \frac{f_{i,u}}{\sum_{i' \in u} f_{i',u}}
+\label{eq:tf}
+\end{equation}
+where \( f_{i,u} \) is the frequency of item \( i \) in user \( u \)'s history, and the denominator is the total number of item occurrences for user \( u \).
+
+\textbf{Inverse user frequency (IDF)} measures the global importance of item \( i \):
+\begin{equation}
+\text{IDF}(i, \mathcal{U}) = \log \left( \frac{|\mathcal{U}|}{|\{u \in \mathcal{U} : i \in u\}|} \right)
+\label{eq:idf}
+\end{equation}
+where \( |\mathcal{U}| \) is the total number of users, and the denominator counts the users whose histories contain item \( i \).
+
+\textbf{TF--IDF} combines the above as:
+\begin{equation}
+\text{TF-IDF}(i, u, \mathcal{U}) = \text{TF}(i, u) \times \text{IDF}(i, \mathcal{U})
+\label{eq:tfidf}
+\end{equation}
+
+A higher TF--IDF score indicates higher importance of the item in the user's interaction record. Each item \( i \) can be represented as a TF--IDF vector \( \mathbf{v}_i \), whose \( j \)-th component is:
+\begin{equation}
+\mathbf{v}_i[j] = \text{TF-IDF}(i, u_j, \mathcal{U})
+\label{eq:tfidf-vector}
+\end{equation}
+where \( u_j \) denotes the \( j \)-th user. These vectors can then be used for similarity computation and recommendation.
+
+\paragraph{BERT}
+BERT (Bidirectional Encoder Representations from Transformers)~\cite{devlin2019bert} is widely used to obtain contextual text representations in NLP; in content-based recommendation, it can also be used to encode item semantics. As BERT is a large model, training from scratch is expensive; typical usage involves pretraining and fine-tuning. In this work, we primarily use pretrained BERT to validate the correctness of the overall framework. Vectorizing an item \( i \) with BERT typically involves:
+\textbf{Preprocessing} tokenizing and normalizing the item profile text \( \text{Doc}_i \); and
+\textbf{Encoding} feeding \( \text{Doc}_i \) into pretrained BERT to obtain a contextual representation \( \mathbf{v}_i \):
+\begin{equation}
+\mathbf{v}_i = \text{BERT}(\text{Doc}_i)
+\label{eq:bert}
+\end{equation}
+
+\textbf{User preference modeling} represents a user's preference vector \( \mathbf{p}_u \) as the average (or weighted average) of item vectors in the user's interaction history. Let \( \mathcal{I}_u \) be the set of items interacted by user \( u \); then:
+\begin{equation}
+\mathbf{p}_u = \frac{1}{|\mathcal{I}_u|} \sum_{i \in \mathcal{I}_u} \mathbf{v}_i
+\label{eq:user-preference}
+\end{equation}
+Given \( \mathbf{p}_u \) and candidate item vectors \( \mathbf{v}_i \), recommendations can be produced via similarity computation.
+
+\paragraph{spaCy}
+spaCy is an open-source NLP library that provides tools for semantic processing and vectorization. Its typical pipeline and how it can be used for recommendation include:
+\textbf{Preprocessing} tokenizing profile text using a predefined vocabulary;
+\textbf{Part-of-speech tagging} assigning POS tags via statistical models and pretrained components;
+\textbf{Dependency parsing} building a dependency tree to identify syntactic relations and sentence structure;
+\textbf{Named entity recognition (NER)} identifying entities via pretrained models and rules; and
+\textbf{Word embeddings} mapping tokens \( w \) to fixed-length vectors \( \mathbf{e}_w \) using pretrained embeddings such as GloVe~\cite{pennington2014glove} and fastText~\cite{bojanowski2017enriching}.
+
+Similar to BERT-based representations, spaCy-based vectors can be used to construct user vectors \( \mathbf{p}_u \) and candidate item vectors \( \mathbf{v}_i \) for subsequent similarity computation and recommendation.
+
+\subsubsection{Similarity-Based Retrieval for Recommendation}
+With vector representations of users and items, recommendation can be performed by computing similarity scores and ranking. The following pseudocode illustrates the procedure:
+
+\begin{listing}[H]
+\caption{Similarity-Ranking-Based Recommendation (Pseudocode)}
+\label{lst:sim-ranking}
+\rule{\columnwidth}{1pt}
+\raggedright
+\texttt{Input: user preference vector $\mathbf{p}_u$, item vectors $\{\mathbf{v}_i\}$, top-$N$}\\
+\texttt{Output: ranked recommendation list}\\
+\texttt{for each candidate item $i$ do}\\
+\texttt{\quad compute similarity $\text{sim}(u,i) = \mathbf{p}_u \cdot \mathbf{v}_i$}\\
+\texttt{end for}\\
+\texttt{Sort candidates by similarity in descending order and return top-$N$}\\
+\rule{\columnwidth}{1pt}
+\end{listing}
+
+\subsection{Summary}
+This chapter reviewed the fundamental ideas and several widely used implementations of interaction-based and content-based recommender systems. These methods also serve as the foundations for the LLM-based hybrid recommender system framework proposed and implemented in Chapter~3. In the following, we will present how LLMs can be used to optimize these baseline implementations and how to align and fuse interaction-based and content-based recommenders into a unified system.

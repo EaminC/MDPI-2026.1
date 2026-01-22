@@ -1,0 +1,180 @@
+% !TeX root = ../thuthesis-example.tex
+\section{Experiments}
+\subsection{Experimental Setup}
+
+\subsubsection{Datasets}
+To validate the effectiveness of the proposed recommender system, we require a real-world dataset that contains (i) user information, (ii) item textual information, and (iii) user--item interaction data. Based on these requirements, we adopt the MovieLens dataset~\cite{harper2015movielens}. The dataset is collected by the GroupLens organization~\cite{grouplens} from an online movie recommendation platform and consists of users' real rating records for movies. Spanning nearly two decades, MovieLens provides multiple versions with different scales, including 100K, 1M, 10M, and 20M~\cite{movielens_100k,movielens_1m,movielens_10m,movielens_20m}. Considering computational cost and feature extraction difficulty, we primarily use MovieLens-1M in our experiments. The dataset used in this work is an offline dataset, and the fields contained in MovieLens can be viewed as a subset of the full item schema discussed in the previous chapter; at the current stage, these fields are sufficient to validate the soundness of the proposed framework. In future iterations, we plan to develop and evaluate an online version using real-time data from production environments and a complete data schema.
+
+MovieLens-1M contains 1,000,209 rating records from 6,040 users on 3,883 movies. Each user has rated at least 20 movies. The dataset covers diverse genres, and the rating timestamps are relatively evenly distributed over time. We use MovieLens-1M to evaluate the performance of the recommender system.
+
+In this work, we split the dataset into training/validation/test sets with a ratio of 8:1:1 for training model-based recommenders. The dataset also includes basic user attributes (e.g., age, gender, and occupation) and basic movie attributes (e.g., title and genre).
+
+In addition, to better process rating data, we preprocess rating timestamps by converting them into year/month/day formats. This facilitates subsequent time-scale modeling. We also implement an interface to convert user information into complete sentences to support later semantic analysis.
+
+Additional statistical characteristics of the dataset are summarized in Table~\ref{table:movielens_1m_stats}.
+
+\begin{table}[h!]
+\centering
+\caption{Statistical Summary of the MovieLens-1M Dataset}
+\begin{tabular}{@{}l r@{}}
+\toprule
+Statistic & Value \\
+\midrule
+Number of users & 6{,}040 \\
+Number of movies & 3{,}883 \\
+Number of ratings & 1{,}000{,}209 \\
+Avg. ratings per user & 165.5 \\
+Avg. ratings per movie & 257.6 \\
+Avg. rating & 3.58 \\
+\bottomrule
+\end{tabular}
+\label{table:movielens_1m_stats}
+\end{table}
+
+\subsubsection{Evaluation Metrics}
+This section introduces the evaluation metrics used in this work. For the final recommender system, we quantify both accuracy and ranking quality. Specifically, we adopt Recall@k and NDCG@k~\cite{herlocker2004evaluating,jarvelin2002cumulated} to evaluate the top-$k$ retrieval recall and the ranking quality, respectively. We detail their definitions and computation below.
+
+Following the notation in previous chapters, let the user set be \( \mathcal{U} = \{u_1, u_2, \cdots, u_m\} \) and the item set be \( \mathcal{I} = \{i_1, i_2, \cdots, i_n\} \). The interaction space is represented by a matrix \( R \in \mathbb{R}^{m \times n} \), where \( R_{ui} \) denotes the rating of user \( u \) on item \( i \). If user \( u \) did not rate item \( i \), then \( R_{ui} \) is missing. The goal is to predict the ratings of the held-out items \( \{I_{n-k+1}, \cdots, I_n\} \) based on the observed ratings \( \{I_1, I_2, \cdots, I_{n-k}\} \). The recommender produces predicted values \( \{I'_{n-k+1}, \cdots, I'_n\} \), which are compared with the ground truth \( \{I_{n-k+1}, \cdots, I_n\} \).
+
+\textbf{Recall@k.}\quad Recall measures the overlap between the recommended list and the true interacted items. It captures accuracy but does not reflect ranking quality. The value ranges from 0 to 1; higher values indicate higher overlap. The parameter \(k\) specifies the cutoff.
+\begin{equation}
+\text{Recall@k} = \frac{1}{|\mathcal{U}|} \sum_{u \in \mathcal{U}} \frac{| \{I_{n-k+1}, I_{n-k+2}, \ldots, I_n\} \cap \{I'_{1}, I'_{2}, \ldots, I'_k\} |}{| \{I_{n-k+1}, I_{n-k+2}, \ldots, I_n\} |}
+\end{equation}
+
+\textbf{NDCG (Normalized Discounted Cumulative Gain).}\quad NDCG evaluates ranking quality. If items with higher user ratings are ranked earlier, the score is higher. The value ranges from 0 to 1; higher values indicate better ranking quality. The parameter \(k\) specifies the cutoff.
+
+1) DCG@k (Discounted Cumulative Gain):
+\begin{equation}
+\text{DCG@k} = \sum_{i=1}^k \frac{2^{R_{u, I'_{i}}} - 1}{\log_2(i + 1)}
+\end{equation}
+
+2) IDCG@k (Ideal DCG):
+\begin{equation}
+\text{IDCG@k} = \sum_{i=1}^k \frac{2^{R_{u, I_{i}^*}} - 1}{\log_2(i + 1)}
+\end{equation}
+
+3) NDCG@k:
+\begin{equation}
+\text{NDCG@k} = \frac{1}{|\mathcal{U}|} \sum_{u \in \mathcal{U}} \frac{\text{DCG@k}}{\text{IDCG@k}}
+\end{equation}
+where \( R_{u, I'_i} \) is user \(u\)'s rating for the recommended item \( I'_i \); \( I'_i \) denotes the $i$-th recommended item; and \( I_i^* \) is the $i$-th item in the ideal ranking sorted by true ratings.
+
+\subsection{Experimental Results}
+\subsubsection{Interaction-Based Long--Short-Term Interest Shift Detection and Adaptive Recommendation}
+Based on the long--short-term adaptive recommendation network with linear weighting layers described in Section~3.2.3 and the training procedure in Algorithm~3.3, we train models with \(K \in \{1,2,3,4\}\). The case \(K=1\) corresponds to the original MF model and serves as the baseline, yielding the MF@Kfold\_agent\_free model after training. We then integrate an LLM memory module to infer model invocation and obtain the final MF@Kfold\_agent model. We evaluate on a validation set consisting of the last 600 users in MovieLens-1M. The results are shown in Table~\ref{table:recall_results}.
+
+\begin{table}[h!]
+\caption{K-Fold MF Results}
+\centering
+\resizebox{\textwidth}{!}{
+\begin{tabular}{@{}l l l l l@{}}
+\toprule
+Experiment & Recall@1 & Recall@5 & Recall@20 & Recall@100 \\
+\midrule
+MF@1fold (baseline) & 0.00522 & 0.02642 & 0.09155 & 0.25371 \\
+\midrule
+MF@2fold\_agent\_free & 0.00466 & 0.02621 & 0.08443 & 0.26017 \\
+MF@2fold\_agent & 0.00631 (+20.88\%) & 0.03345 (+26.63\%) & 0.10639 (+16.19\%) & 0.29908 (+17.88\%) \\
+\midrule
+MF@3fold\_agent\_free & 0.00510 & 0.02617 & 0.09087 & 0.25734 \\
+MF@3fold\_agent & 0.00489 (-6.31\%) & 0.02878 (+8.93\%) & 0.09788 (+6.92\%) & 0.27161 (+7.05\%) \\
+\midrule
+MF@4fold\_agent\_free & 0.00477 & 0.02596 & 0.09040 & 0.26133 \\
+MF@4fold\_agent & 0.00518 (-0.77\%) & 0.02766 (+4.69\%) & 0.09702 (+5.98\%) & 0.27142 (+6.98\%) \\
+\bottomrule
+\end{tabular}
+}
+\label{table:recall_results}
+\end{table}
+
+Key observations from the above results are as follows:
+
+\textbf{Benefit of attention-range quantization.}\quad As shown, when \(K=2,3,4\), recall improves notably compared with the baseline. Recall@1 is more stringent and may decrease due to its strictness, whereas recall at larger cutoffs improves consistently. The largest gain is achieved by MF@2fold\_agent, which improves Recall@5 by 26.63\% over the baseline.
+
+\textbf{Effect of varying \(K\) on long-term prediction.}\quad Comparing different base models, performance gains are most pronounced when the high-attention range is approximately half of the overall interaction horizon. As \(K\) increases, the high-attention window becomes shorter, which reduces extracted features and shortens attention span, leading to reduced long-term prediction performance.
+
+\textbf{LLM-enhanced semantic scheduling.}\quad Across experimental groups, models with LLM-driven semantic reasoning and scheduling consistently outperform their agent-free counterparts, demonstrating the LLM's ability to understand user preference shifts and to schedule models effectively.
+
+For the best-performing MF@2fold\_agent model, the cumulative Recall@5 variation is illustrated in Figure~\ref{fig:mf2fold-recall5}.
+
+\begin{figure}
+    \centering
+    % NOTE: The original text references 421.png without a path.
+    % We standardize it to figures/421.png. If the file is missing, a placeholder is shown.
+    \IfFileExists{figures/421.png}{%
+        \includegraphics[width=0.9\linewidth]{figures/421.png}%
+    }{%
+        \fbox{Missing figure: figures/421.png}%
+    }
+    \caption{MF@2fold\_agent Recall@5 Results.}
+    \label{fig:mf2fold-recall5}
+\end{figure}
+
+\subsubsection{Semantic Content-Based Recommendation}
+Based on the system design in Section~3.2.4 and Algorithm~3.5, we implement a retrieval system that performs vectorization-based search. We evaluate three vectorization models/toolkits---BERT, TF--IDF, and spaCy---and use an LLM to predict users' future query terms. We then perform item recall using the predicted queries through the vectorization interface. Since multiple queries are generated and multiple recall rounds are needed, we set the smallest cutoff to \(k=10\). The results are shown in Table~\ref{table:recommendation_performance}.
+
+\begin{table}[h!]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lcccccccc@{}}
+\toprule
+  & \multicolumn{4}{c}{NDCG@k} & \multicolumn{4}{c}{Recall@k} \\
+\cmidrule(r){2-5} \cmidrule(l){6-9}
+ & k=10 & k=20 & k=50 & k=100 & k=10 & k=20 & k=50 & k=100 \\
+\midrule
+BERT & 0.1695 & 0.2215 & 0.2789 & 0.3305 & 0.0034 & 0.0073 & 0.0171 & 0.0341 \\
+TF--IDF & 0.2151 & 0.2489 & 0.3007 & 0.3541 & 0.0046 & 0.0080 & 0.0184 & 0.0416 \\
+spaCy & 0.1912 & 0.2324 & 0.3017 & 0.3380 & 0.0044 & 0.0082 & 0.0206 & 0.0361 \\
+\bottomrule
+\end{tabular}
+}
+\caption{Query--Search Recommendation Performance with Different Vectorization Methods}
+\label{table:recommendation_performance}
+\end{table}
+
+Based on the results, we select TF--IDF and spaCy for subsequent experiments due to their stronger performance. BERT performs worse in our setting and is also incompatible with other models in later experiments due to excessive GPU memory usage. Therefore, for both compute and performance considerations, we do not use BERT in later experiments; instead, we validate the framework using the remaining vectorization methods.
+
+\subsubsection{LLM-Based Hybrid Intent Recognition Recommendation System}
+In this section, we implement the hybrid intent recognition recommendation framework designed in Section~3.2.5 and Algorithm~3.8. As a baseline, we adopt a \emph{simple} multi-armed bandit (MAB) setup to balance exploitation of observed behavioral regularities and exploration. Concretely, we use an epsilon-greedy strategy to trade off known and novel information~\cite{Sutton1998}, and aim to maximize cumulative rewards~\cite{Lattimore2020,Auer2002}. The exploration probability is set to 0.1.
+
+We emphasize that this MAB baseline is primarily used as a \emph{trivial} exploratory reference rather than a strong state-of-the-art (SOTA) bandit baseline; thus, the comparison should be interpreted as an initial proof-of-concept for the proposed framework. More rigorous comparisons against stronger bandit variants and competitive modern recommenders are left for future work.
+
+\begin{table}[h!]
+\caption{Performance Comparison of Recommendation Systems}
+\centering
+\begingroup
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{2pt}
+\fontsize{6}{8}\selectfont
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}llcccccccc@{}}
+\toprule
+ &  & \multicolumn{4}{c}{NDCG@k} & \multicolumn{4}{c}{Recall@k} \\
+\cmidrule(r){3-6} \cmidrule(l){7-10}
+ & & k=10 & k=20 & k=50 & k=100 & k=10 & k=20 & k=50 & k=100 \\
+\midrule
+MAB & & 0.1101 & 0.1120 & 0.1245 & 0.1428 & 0.0206 & 0.0373 & 0.0784 & 0.1293 \\
+\midrule
+ & Base & 0.1912 (+73.59\%) & 0.2324 (+107.14\%) & 0.3017 (+142.29\%) & 0.3380 (+136.73\%) & 0.0044 (-78.64\%) & 0.0082 (-78.00\%) & 0.0206 (-73.72\%) & 0.0361 (-72.08\%) \\
+ & K1\_align & 0.2435 (+121.06\%) & 0.2514 (+124.52\%) & 0.3019 (+142.49\%) & 0.3461 (+142.43\%) & 0.0042 (-79.61\%) & 0.0061 (-83.65\%) & 0.0142 (-81.89\%) & 0.0291 (-77.49\%) \\
+spaCy & K2\_align & 0.1937 (+75.88\%) & 0.2387 (+113.19\%) & 0.2834 (+127.59\%) & 0.3304 (+131.38\%) & 0.0028 (-86.41\%) & 0.0057 (-84.73\%) & 0.0138 (-82.40\%) & 0.0286 (-77.87\%) \\
+ & K3\_align & 0.1820 (+65.04\%) & 0.2060 (+83.93\%) & 0.2626 (+110.85\%) & 0.3221 (+125.56\%) & 0.0033 (-83.98\%) & 0.0055 (-85.27\%) & 0.0124 (-84.18\%) & 0.0272 (-78.95\%) \\
+ & K4\_align & 0.1759 (+59.76\%) & 0.2057 (+83.71\%) & 0.2609 (+109.54\%) & 0.3202 (+124.21\%) & 0.0033 (-83.98\%) & 0.0058 (-84.47\%) & 0.0126 (-83.93\%) & 0.0265 (-79.49\%) \\
+\midrule
+ & Base & 0.2151 (+95.23\%) & 0.2489 (+122.23\%) & 0.3007 (+141.48\%) & 0.3541 (+148.02\%) & 0.0046 (-77.67\%) & 0.0080 (-78.56\%) & 0.0184 (-76.55\%) & 0.0416 (-67.76\%) \\
+ & K1\_align & 0.2190 (+98.19\%) & 0.2482 (+121.61\%) & 0.3019 (+142.49\%) & 0.3343 (+134.14\%) & 0.0039 (-81.07\%) & 0.0066 (-82.30\%) & 0.0150 (-80.87\%) & 0.0279 (-78.43\%) \\
+TF--IDF & K2\_align & 0.1927 (+75.03\%) & 0.2265 (+102.24\%) & 0.2729 (+119.17\%) & 0.3281 (+129.91\%) & 0.0031 (-84.95\%) & 0.0056 (-84.98\%) & 0.0126 (-83.93\%) & 0.0274 (-78.80\%) \\
+ & K3\_align & 0.1538 (+39.68\%) & 0.1985 (+77.23\%) & 0.2520 (+102.39\%) & 0.3110 (+117.86\%) & 0.0022 (-89.32\%) & 0.0047 (-87.40\%) & 0.0113 (-85.60\%) & 0.0245 (-81.04\%) \\
+ & K4\_align & 0.1530 (+38.87\%) & 0.2020 (+80.36\%) & 0.2543 (+104.21\%) & 0.3134 (+119.45\%) & 0.0024 (-88.35\%) & 0.0049 (-86.86\%) & 0.0114 (-85.46\%) & 0.0248 (-80.83\%) \\
+\bottomrule
+\end{tabular}
+}
+\label{table:recommendation_performance_compare}
+\endgroup
+\end{table}
+
+Overall, compared with this simple MAB baseline, our framework improves ranking-oriented metrics (NDCG) under the diversity- and ranking-focused evaluation setting. For example, at \(k=100\), NDCG increases from 0.1428 (MAB) to 0.3541 (TF--IDF, Base), i.e., an absolute increase of 0.2113; this corresponds to a relative gain of approximately \(1.48\times\) over the baseline at that cutoff. At the same time, Recall@k may decrease, reflecting a trade-off where the framework prioritizes ranking quality/diversity of the returned list rather than maximizing pure hit-rate. Given the simplicity of the MAB baseline used here, these results should be viewed as exploratory rather than a definitive SOTA comparison.
+
+\subsection{Experimental Conclusions}
+In this chapter, we experimentally validate the interaction-based long--short-term adaptive recommendation network, the content-based recommendation network corrected by regex matching and threshold thresholding, and the Query--Search plus behavior--content alignment framework proposed in Chapter~3. The adaptive long--short-term module improves recall by up to 26.63\%. For the end-to-end hybrid framework, we observe notable improvements in ranking quality (NDCG) under diversity-focused recommendation settings, with representative cutoffs showing gains consistent with the \(\sim\)1.48\(\times\) NDCG description in the abstract. However, since the MAB baseline adopted here is intentionally lightweight, these findings are preliminary; future work should compare against stronger bandit baselines and more competitive SOTA recommender systems on broader datasets to more thoroughly assess effectiveness and generalizability.
+
