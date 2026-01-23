@@ -16,7 +16,7 @@ The necessity and design advantages of using LLMs in our framework can be summar
 \subsubsection{Item Recommendation: An Overview}
 This section focuses on an agent-based framework design for item recommendation. In urban life, item recommendation spans many aspects of daily activities, including food, clothing, housing, and transportation. Our framework is designed to cover the full set of fields that real-world items may contain. Beyond common interaction features and entity metadata in typical online recommender systems, we explicitly incorporate real-world urban information, such as geo-locations, map data, and integrated city databases. Under this general framework, many conventional online recommender systems with agent memory updates can be viewed as special cases (i.e., item recommendation without geographic information). Therefore, the recommendation targets can be either online-interactable items or real-world POIs enriched with urban spatial information.
 
-\begin{figure}
+\begin{figure}[t]
     \centering
     \IfFileExists{figures/POI_Rec.png}{%
         \includegraphics[width=0.4\linewidth]{figures/POI_Rec.png}%
@@ -110,16 +110,82 @@ Based on the above memory data structures, we design a set of operations and mem
 
 \textbf{Feedback reception (Shake Agent).}\quad Traditional recommenders typically cannot significantly refine results for every user after returning recommendations. In our framework, the system can accept user feedback requests, interpret them, and iteratively refine recommendations.
 
-\begin{figure}[h!]
+\begin{figure}[t]
     \centering
-    \IfFileExists{figures/agent8.pdf}{%
-        \includegraphics[width=0.85\linewidth]{figures/agent8.pdf}%
+    \IfFileExists{figures/part1.pdf}{%
+        \includegraphics[width=0.95\linewidth]{figures/part1.pdf}%
     }{%
-        \fbox{Missing figure: figures/agent8.pdf}%
+        \fbox{Missing figure: figures/part1.pdf}%
     }
-    \caption{End-to-end POI recommendation workflow driven by LLM agents.}
-    \label{fig:agent-flow}
+    \caption{Stage 1: Agent memory module (Sew stage) that integrates long-/short-term preferences and static/dynamic user information.}
+    \label{fig:agent-flow-1}
 \end{figure}
+
+\begin{figure}[t]
+    \centering
+    \IfFileExists{figures/part2.pdf}{%
+        \includegraphics[width=0.95\linewidth]{figures/part2.pdf}%
+    }{%
+        \fbox{Missing figure: figures/part2.pdf}%
+    }
+    \caption{Stage 2: Hybrid candidate recall and pre-ranking to improve recall quality while maintaining result diversity.}
+    \label{fig:agent-flow-2}
+\end{figure}
+
+\begin{figure}[t]
+    \centering
+    \IfFileExists{figures/part3.pdf}{%
+        \includegraphics[width=0.95\linewidth]{figures/part3.pdf}%
+    }{%
+        \fbox{Missing figure: figures/part3.pdf}%
+    }
+    \caption{Stage 3: Human feedback and propagation back to the database for iterative updates and refinement.}
+    \label{fig:agent-flow-3}
+\end{figure}
+
+\begin{listing}[t]
+\caption{Example payloads for the numbered steps (1--6) in Figures~\ref{fig:agent-flow-1}--\ref{fig:agent-flow-3} (JSON-like representation)}
+\label{lst:agent-flow-payloads}
+\rule{\columnwidth}{1pt}
+\raggedright
+\textbf{(1) User request (dynamic memory / query)}
+\begin{lstlisting}[style=jsonlike]
+{
+  "type": "meal",
+  "classification": "sichuan food",
+  "name": "chuanweiju",
+  "filter": ["distance", 0]
+}
+\end{lstlisting}
+
+\textbf{(2) Preference summary (static memory / persona)}
+\begin{lstlisting}[style=jsonlike]
+{
+  "description": "He is such a ...",
+  "preferred_class": "sichuan food",
+  "filter": ["distance", 0]
+}
+\end{lstlisting}
+
+\textbf{(3) Feedback-adjusted constraints (after user feedback)}
+\begin{lstlisting}[style=jsonlike]
+{
+  "type": "meal",
+  "classification": "sichuan food",
+  "name": "chuanweiju",
+  "filter": ["distance", 0],
+  "modified_filter": ["comment", 1]
+}
+\end{lstlisting}
+
+\textbf{(4/5/6) Candidate item list (shared payload)}
+\begin{lstlisting}[style=jsonlike]
+{
+  "item_list": ["item1", "item2", "item3", "..."]
+}
+\end{lstlisting}
+\rule{\columnwidth}{1pt}
+\end{listing}
 
 \subsubsection{LLM-Agent-Based POI Recommendation Workflow}
 After describing the functionality of each agent component, we outline the overall recommendation workflow. Subsequent optimizations will focus on selected components within this framework. As suggested by the agent names, the recommendation system resembles a process of ``sewing a glove'', ``wearing rings'', and finally ``shaking hands'' with the user. The overall pipeline consists of: (i) memory initialization (Pir/Air and Sew), (ii) candidate recall (Glove, Rings, and Plan-B), and (iii) post-feedback (Shake).
@@ -192,7 +258,7 @@ The GPU-parallel training procedure of the weighted attention-range recommender 
 \rule{\columnwidth}{1pt}
 \end{algorithm}
 
-\begin{figure}[h!]
+\begin{figure}[t]
     \centering
     \IfFileExists{figures/MF.pdf}{%
         \includegraphics[scale=0.6]{figures/MF.pdf}%
@@ -414,10 +480,10 @@ Second, the content-based recommender with regex matching and threshold filterin
 
 Finally, given both the behavior-based correction model and the content-based recall results, we apply the fusion framework in Algorithm~\ref{lst:hybrid-align} to correct content recall using behavioral signals. The final ranked list thus jointly reflects both item content semantics and user interaction behaviors, and is returned for evaluation.
 
-\begin{figure}[h!]
+\begin{figure}[t]
     \centering
     \IfFileExists{figures/new1.pdf}{%
-        \includegraphics[scale=0.45]{figures/new1.pdf}%
+        \includegraphics[width=\linewidth]{figures/new1.pdf}%
     }{%
         \fbox{Missing figure: figures/new1.pdf}%
     }
