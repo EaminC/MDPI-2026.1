@@ -2,6 +2,11 @@
 
 # MDPI LaTeX 一键编译脚本
 # 自动执行完整的编译流程：pdflatex -> bibtex -> pdflatex -> pdflatex
+#
+# 可选：编译成功后自动提交并推送到 GitHub
+# 用法：
+#   ./compile.sh --git
+# 该模式只执行：git add -A -> git commit (从键盘输入 message) -> git push
 
 # 设置颜色输出（可选）
 RED='\033[0;31m'
@@ -76,3 +81,50 @@ echo ""
 echo -e "${GREEN}========================================${NC}"
 echo -e "${GREEN}编译完成！输出文件: ${MAIN_FILE}.pdf${NC}"
 echo -e "${GREEN}========================================${NC}"
+
+# 可选：自动 Git add/commit/push
+if [ "${1:-}" = "--git" ]; then
+    echo ""
+    echo -e "${YELLOW}========================================${NC}"
+    echo -e "${YELLOW}Git 自动提交与推送（--git）${NC}"
+    echo -e "${YELLOW}========================================${NC}"
+
+    # 必须在 git 仓库内
+    git rev-parse --is-inside-work-tree > /dev/null 2>&1
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}错误: 当前目录不是 git 仓库，无法执行 git add/commit/push${NC}"
+        exit 1
+    fi
+
+    # 暂存所有变更（包括新增/删除）
+    git add -A
+
+    # 如果没有任何需要提交的内容，就直接退出
+    git diff --cached --quiet
+    if [ $? -eq 0 ]; then
+        echo -e "${YELLOW}没有可提交的改动（working tree clean / 无 staged changes），跳过 commit/push。${NC}"
+        exit 0
+    fi
+
+    # 从键盘读取 commit message
+    echo ""
+    read -r -p "请输入 commit message（留空则取消）： " COMMIT_MSG
+    if [ -z "${COMMIT_MSG}" ]; then
+        echo -e "${YELLOW}已取消：commit message 为空。${NC}"
+        exit 0
+    fi
+
+    git commit -m "${COMMIT_MSG}"
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}错误: git commit 失败${NC}"
+        exit 1
+    fi
+
+    git push
+    if [ $? -ne 0 ]; then
+        echo -e "${RED}错误: git push 失败${NC}"
+        exit 1
+    fi
+
+    echo -e "${GREEN}✓ Git add/commit/push 完成${NC}"
+fi
